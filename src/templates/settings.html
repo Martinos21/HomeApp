@@ -1,0 +1,16 @@
+{% extends "layout.html" %}
+{% block content %}
+<h2>Settings</h2>
+<form method="POST">
+    <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" name="dark_mode" id="darkModeSwitch" {% if dark_mode %}checked{% endif %}>
+        <label class="form-check-label" for="darkModeSwitch">Dark Mode</label>
+    </div>
+    <button class="btn btn-primary mt-3" type="submit">Save</button>
+</form>
+
+<hr>
+<h3>Network Info</h3>
+<p><strong>IP Address:</strong> {{ network.ip }}</p>
+<p><strong>MAC Address:</strong> {{ network.mac }}</p>
+{% endblock %}
