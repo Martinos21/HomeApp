@@ -1,9 +1,9 @@
 {% extends "layout.html" %}
+{% from "card.html" import sensor_card %}
+
 {% block content %}
 <h2>Smart Home Dashboard</h2>
-<div class="card p-3">
-    <p><strong>Temperature:</strong> {{ data.temperature }} °C</p>
-    <p><strong>Humidity:</strong> {{ data.humidity }} %</p>
-    <p><strong>CO₂:</strong> {{ data.co2 }} ppm</p>
-</div>
+{% for sensor in sensors %}
+    {{ sensor_card(sensor.title, sensor.location, sensor.value, sensor.unit) }}
+{% endfor %}
 {% endblock %}

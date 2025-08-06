@@ -24,8 +24,13 @@ def get_network_info():
 @app.route('/')
 def index():
     data = get_sensor_data()
+    sensors = [
+        {"title": "Temperature Sensor", "location": "Living Room", "value": data["temperature"], "unit": "°C"},
+        {"title": "Humidity Sensor", "location": "Living Room", "value": data["humidity"], "unit": "%"},
+        {"title": "CO₂ Sensor", "location": "Living Room", "value": data["co2"], "unit": "ppm"},
+    ]
     dark_mode = session.get("dark_mode", False)
-    return render_template("index.html", data=data, dark_mode=dark_mode)
+    return render_template("index.html", sensors=sensors, dark_mode=dark_mode)
 
 @app.route('/settings', methods=["GET", "POST"])
 def settings():
