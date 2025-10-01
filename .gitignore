@@ -192,3 +192,17 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# Microsoft Office temporary/lock files
+~$*.doc*
+~$*.dot*
+~$*.xls*
+~$*.xlt*
+~$*.xlam*
+~$*.ppt*
+~$*.pot*
+~$*.pps*
+~$*.ppam*
+~$*.ppsm*
+~$*.sldx
+~$*.sldm
