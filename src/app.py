@@ -3,7 +3,7 @@ import random
 import socket
 import uuid
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='templates')
 app.secret_key = "smart_home_secret"
 
 # Simulate sensor data
@@ -43,11 +43,11 @@ def settings():
     network_info = get_network_info()
     return render_template("settings.html", dark_mode=dark_mode, network=network_info)
 
-@app.route('/test')
-def test():
-    return "<h1>Hello Smart Home</h1>"
+@app.route('/home')
+def home():
+    return render_template("landing.html")
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=True)
+    app.run(host='0.0.0.0', port=8000, debug=True)
 
