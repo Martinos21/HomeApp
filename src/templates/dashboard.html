@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Home Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <h1 class="logo">
+      <i class="fas fa-home"></i> SmartHome
+    </h1>
+    <nav>
+      <a href="{{ url_for('dashboard') }}" class="nav-item active">
+        <i class="fas fa-th-large"></i> Dashboard
+      </a>
+      <a href="{{ url_for('devices') }}" class="nav-item">
+        <i class="fas fa-lightbulb"></i> Devices
+      </a>
+      <a href="{{ url_for('settings') }}" class="nav-item">
+        <i class="fas fa-cog"></i> Settings
+      </a>
+    </nav>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <h2 class="page-title">Dashboard</h2>
+    <p class="page-subtitle">Welcome to your smart home dashboard!</p>
+  </div>
+</body>
+</html>
+

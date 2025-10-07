@@ -3,7 +3,7 @@ import random
 import socket
 import uuid
 
-app = Flask(__name__, template_folder='templates')
+app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = "smart_home_secret"
 
 # Simulate sensor data
@@ -22,31 +22,20 @@ def get_network_info():
     return {"ip": ip_address, "mac": mac_address}
 
 @app.route('/')
-def index():
-    data = get_sensor_data()
-    sensors = [
-        {"title": "Temperature Sensor", "location": "Living Room", "value": data["temperature"], "unit": "°C"},
-        {"title": "Humidity Sensor", "location": "Living Room", "value": data["humidity"], "unit": "%"},
-        {"title": "CO₂ Sensor", "location": "Living Room", "value": data["co2"], "unit": "ppm"},
-    ]
-    dark_mode = session.get("dark_mode", False)
-    return render_template("index.html", sensors=sensors, dark_mode=dark_mode)
-
-@app.route('/settings', methods=["GET", "POST"])
-def settings():
-    if request.method == "POST":
-        if "dark_mode" in request.form:
-            session["dark_mode"] = (request.form["dark_mode"] == "on")
-        return redirect(url_for('settings'))
-
-    dark_mode = session.get("dark_mode", False)
-    network_info = get_network_info()
-    return render_template("settings.html", dark_mode=dark_mode, network=network_info)
-
-@app.route('/home')
 def home():
     return render_template("landing.html")
 
+@app.route('/dashboard')
+def dashboard():
+    return render_template('dashboard.html')
+
+@app.route('/devices')
+def devices():
+    return render_template('devices.html')
+
+@app.route('/settings')
+def settings():
+    return render_template('settings.html')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000, debug=True)
