@@ -1,1 +1,2 @@
-# HomeOS
+# HomeApp
+- repo for semestral project
