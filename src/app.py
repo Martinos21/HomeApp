@@ -23,7 +23,7 @@ def get_network_info():
 
 @app.route('/')
 def home():
-    return render_template("landing.html")
+    return redirect(url_for('dashboard'))
 
 @app.route('/dashboard')
 def dashboard():
