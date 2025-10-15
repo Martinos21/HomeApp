@@ -16,6 +16,7 @@ def data():
     print(d)
     return "OK"
 
+
 if __name__ == "__main__":
     # Run Flask server
     con = sqlite3.connect('home.db')
