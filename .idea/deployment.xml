@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="admin@192.168.88.109:22 agent" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="Home opi" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
-      <paths name="admin@192.168.88.109:22 agent">
+      <paths name="Home opi">
         <serverdata>
           <mappings>
             <mapping deploy="/tmp/pycharm_project_71" local="$PROJECT_DIR$" />
