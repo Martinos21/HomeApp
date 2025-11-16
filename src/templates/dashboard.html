@@ -30,8 +30,21 @@
   <div class="main-content">
     <h2 class="page-title">Dashboard</h2>
     <p class="page-subtitle">Welcome to your smart home dashboard!</p>
+    <div class="widget-container"></div>
   </div>
 <button class="addCardButton" > + </button>
 </body>
+<script>
+  const button = document.querySelector('.addCardButton');
+  const container = document.querySelector('.widget-container');
+  let count = 1;
+
+  button.addEventListener('click', () => {
+    const widget = document.createElement('div');
+    widget.classList.add('widget');
+    widget.textContent = "Widget " + count++;
+    container.appendChild(widget);
+  });
+</script>
 </html>
 
