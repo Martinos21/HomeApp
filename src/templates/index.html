@@ -1,9 +1,0 @@
-{% extends "layout.html" %}
-{% from "card.html" import sensor_card %}
-
-{% block content %}
-<h2>Smart Home Dashboard</h2>
-{% for sensor in sensors %}
-    {{ sensor_card(sensor.title, sensor.location, sensor.value, sensor.unit) }}
-{% endfor %}
-{% endblock %}
