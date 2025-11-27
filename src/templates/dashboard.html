@@ -30,7 +30,11 @@
   <div class="main-content">
     <h2 class="page-title">Dashboard</h2>
     <p class="page-subtitle">Welcome to your smart home dashboard!</p>
-    <div class="widget-container"></div>
+    <div class="widget-container">
+      {% for w in widgets %}
+        <div class="widget">{{ w }}</div>
+      {% endfor %}
+    </div>
   </div>
 <button class="addCardButton" > + </button>
 </body>
@@ -38,33 +42,26 @@
   const button = document.querySelector('.addCardButton');
   const container = document.querySelector('.widget-container');
 
-  window.addEventListener('load', () => {
-    const savedWidgets = JSON.parse(localStorage.getItem('widgets')) || [];
-    savedWidgets.forEach(text => {
-      createWidget(text);
-    });
-  });
-
   button.addEventListener('click', () => {
     const widgetText = "Widget " + (container.children.length + 1);
-    createWidget(widgetText);
-    saveWidgets();
-  });
 
-  function createWidget(text) {
-    const widget = document.createElement('div');
-    widget.classList.add('widget');
-    widget.textContent = text;
-    container.appendChild(widget);
-  }
-
-  function saveWidgets() {
-    const widgets = [];
-    document.querySelectorAll('.widget').forEach(w => {
-      widgets.push(w.textContent);
+    fetch('/add_widget', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ text: widgetText })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        const widget = document.createElement('div');
+        widget.classList.add('widget');
+        widget.textContent = widgetText;
+        container.appendChild(widget);
+      }
     });
-    localStorage.setItem('widgets', JSON.stringify(widgets));
-  }
+  });
 </script>
 
 </html>

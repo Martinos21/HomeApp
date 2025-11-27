@@ -1,10 +1,12 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import random
 import socket
 import uuid
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = "smart_home_secret"
+
+widgets = []
 
 # Simulate sensor data
 def get_sensor_data():
@@ -21,13 +23,20 @@ def get_network_info():
     mac_address = ':'.join(['{:02x}'.format((uuid.getnode() >> i) & 0xff) for i in range(0, 48, 8)][::-1])
     return {"ip": ip_address, "mac": mac_address}
 
+
 @app.route('/')
 def home():
     return redirect(url_for('dashboard'))
 
 @app.route('/dashboard')
 def dashboard():
-    return render_template('dashboard.html')
+    return render_template('dashboard.html', widgets=widgets)
+
+@app.route('/add_widget', methods=['POST'])
+def add_widget():
+    data = request.json.get('text')
+    widgets.append(data)
+    return jsonify(success=True)
 
 @app.route('/devices')
 def devices():
