@@ -37,32 +37,84 @@
     </div>
   </div>
 <button class="addCardButton" > + </button>
+<!-- Modal -->
+<div class="modal" id="widgetModal">
+  <div class="modal-content">
+    <h3>Create Widget</h3>
+
+    <label>Widget Title</label>
+    <input type="text" id="widgetTitle" placeholder="Enter widget name" />
+
+    <label>Data to display</label>
+    <select id="widgetType">
+      <option value="temperature">Temperature</option>
+      <option value="humidity">Humidity</option>
+      <option value="energy">Energy Usage</option>
+      <option value="lights">Lights Status</option>
+    </select>
+
+    <div class="modal-buttons">
+      <button id="cancelBtn">Cancel</button>
+      <button id="createBtn">Create</button>
+    </div>
+  </div>
+</div>
 </body>
 <script>
   const button = document.querySelector('.addCardButton');
   const container = document.querySelector('.widget-container');
 
+  const modal = document.getElementById('widgetModal');
+  const cancelBtn = document.getElementById('cancelBtn');
+  const createBtn = document.getElementById('createBtn');
+
+  const titleInput = document.getElementById('widgetTitle');
+  const typeSelect = document.getElementById('widgetType');
+
+  // Open form
   button.addEventListener('click', () => {
-    const widgetText = "Widget " + (container.children.length + 1);
+    modal.style.display = 'flex';
+  });
+
+  // Close form
+  cancelBtn.addEventListener('click', () => {
+    modal.style.display = 'none';
+  });
+
+  // Create widget
+  createBtn.addEventListener('click', () => {
+    const title = titleInput.value;
+    const type = typeSelect.value;
+
+    if (!title) {
+      alert("Please enter a widget title");
+      return;
+    }
 
     fetch('/add_widget', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ text: widgetText })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, type })
     })
     .then(res => res.json())
     .then(data => {
       if (data.success) {
         const widget = document.createElement('div');
         widget.classList.add('widget');
-        widget.textContent = widgetText;
+        widget.innerHTML = `
+          <h4>${title}</h4>
+          <p>Type: ${type}</p>
+        `;
         container.appendChild(widget);
+
+        // Reset and close
+        titleInput.value = '';
+        modal.style.display = 'none';
       }
     });
   });
 </script>
+
 
 </html>
 
