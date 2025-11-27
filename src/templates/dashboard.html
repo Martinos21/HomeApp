@@ -37,14 +37,35 @@
 <script>
   const button = document.querySelector('.addCardButton');
   const container = document.querySelector('.widget-container');
-  let count = 1;
+
+  window.addEventListener('load', () => {
+    const savedWidgets = JSON.parse(localStorage.getItem('widgets')) || [];
+    savedWidgets.forEach(text => {
+      createWidget(text);
+    });
+  });
 
   button.addEventListener('click', () => {
+    const widgetText = "Widget " + (container.children.length + 1);
+    createWidget(widgetText);
+    saveWidgets();
+  });
+
+  function createWidget(text) {
     const widget = document.createElement('div');
     widget.classList.add('widget');
-    widget.textContent = "Widget " + count++;
+    widget.textContent = text;
     container.appendChild(widget);
-  });
+  }
+
+  function saveWidgets() {
+    const widgets = [];
+    document.querySelectorAll('.widget').forEach(w => {
+      widgets.push(w.textContent);
+    });
+    localStorage.setItem('widgets', JSON.stringify(widgets));
+  }
 </script>
+
 </html>
 
