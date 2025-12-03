@@ -209,3 +209,5 @@ cython_debug/
 
 # Temporary files
 **/*.tmp
+
+*.xml

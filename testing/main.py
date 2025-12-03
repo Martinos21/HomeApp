@@ -1,27 +1,21 @@
-import os
+import subprocess
 
-gpio_sysfs_path = "/sys/class/gpio"
+SSID = "MyHotspot"
+PASSWORD = "12345678"  # Must be 8+ chars
+BAND = "wifi"  # or "wifi2" for 5 GHz, depending on system
 
-if os.path.exists(gpio_sysfs_path):
-    for chip_dir in os.listdir(gpio_sysfs_path):
-        if chip_dir.startswith("gpiochip"):
-            chip_path = os.path.join(gpio_sysfs_path, chip_dir)
-            try:
-                with open(os.path.join(chip_path, "label"), "r") as f:
-                    label = f.read().strip()
-                with open(os.path.join(chip_path, "base"), "r") as f:
-                    base = int(f.read().strip())
-                with open(os.path.join(chip_path, "ngpio"), "r") as f:
-                    num_gpios = int(f.read().strip())
+def start_hotspot(ssid, password):
+    try:
+        subprocess.run([
+            "nmcli", "device", "wifi", "hotspot",
+            "ssid", ssid,
+            "password", password
+        ], check=True)
+        print("Hotspot started!")
+    except subprocess.CalledProcessError as e:
+        print("Error starting hotspot:", e)
 
-                print(f"Chip: {label} (Base: {base}, Number of GPIOs: {num_gpios})")
-
-            except FileNotFoundError:
-                print(f"Could not get info for {chip_dir}")
-            except Exception as e:
-                print(f"Error processing {chip_dir}: {e}")
-else:
-    print("`/sys/class/gpio` not found. This method might not be supported or is deprecated.")
+start_hotspot(SSID, PASSWORD)
 
 
 

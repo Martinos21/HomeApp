@@ -34,9 +34,16 @@ def dashboard():
 
 @app.route('/add_widget', methods=['POST'])
 def add_widget():
-    data = request.json.get('text')
-    widgets.append(data)
-    return jsonify(success=True)
+    data = request.get_json()
+    title = data.get('title')
+    widget_type = data.get('type')
+
+    # You can store this in DB later
+    return jsonify({
+        'success': True,
+        'title': title,
+        'type': widget_type
+    })
 
 @app.route('/devices')
 def devices():
