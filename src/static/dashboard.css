@@ -131,7 +131,7 @@ body {
   z-index: 999;
   inset: 0;
   background: rgba(15, 23, 42, 0.75); /* Dark semi-transparent overlay matching dashboard */
-  display: flex;
+
   align-items: center;
   justify-content: center;
 }
