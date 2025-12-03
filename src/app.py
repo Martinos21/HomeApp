@@ -4,6 +4,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 import random
 import socket
 import uuid
+from src.tools.hotspot import start_hotspot, stop_hotspot
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = "smart_home_secret"
@@ -64,5 +65,7 @@ def settings():
     return render_template('settings.html')
 
 if __name__ == '__main__':
+    stop_hotspot()
+    start_hotspot(ssid="SEMWIFI", password="12345678")
     app.run(host='0.0.0.0', port=8000, debug=True)
 
