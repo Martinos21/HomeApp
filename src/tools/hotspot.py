@@ -13,7 +13,6 @@ def start_hotspot(ssid, password):
 
 def stop_hotspot():
     try:
-        # Turns off the Wi-Fi hotspot (disables wifi)
         subprocess.run([
             "nmcli", "connection", "down", "Hotspot"
         ], check=True)

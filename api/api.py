@@ -1,20 +1,20 @@
 import sqlite3
 from flask import Flask, request
-
+import datetime
 app = Flask(__name__)
-
 
 @app.route('/data', methods=['POST'])
 def data():
     d = request.json
-    for key, value in d.items():
+    tName = request.headers.get('Name')
+    current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    values = tuple(d.values()) + (current_time,)
+
+    with sqlite3.connect('home.db') as con:
         cur = con.cursor()
-        cur.execute(f"CREATE TABLE IF NOT EXISTS {key} (value)")
+        cur.execute(f"CREATE TABLE IF NOT EXISTS {tName} (Press FLOAT, Temp FLOAT, Hum FLOAT, Tim TEXT)")
+        cur.execute(f"INSERT INTO {tName} (Press, Temp, Hum, Tim) VALUES (?, ?, ?, ?)", values)
         con.commit()
-        cur.execute(f"INSERT INTO {key} VALUES ({value})")
-        con.commit()
-        cur.close()
-    print(d)
     return "OK"
 
 
