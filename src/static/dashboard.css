@@ -171,3 +171,62 @@ body {
   background: #2563eb; /* Slightly darker blue on hover */
 }
 
+/* ===== Widget Delete Button Styles ===== */
+
+/* 1. Ensure the widget is the positioning context for the delete button */
+.widget {
+  /* ... existing styles ... */
+  background: #1e293b;
+  border: 1px solid #334155;
+  padding: 20px;
+  border-radius: 12px;
+  color: #e2e8f0;
+  text-align: center;
+  font-size: 1.1rem;
+
+  /* ADDED: Crucial for positioning the delete button */
+  position: relative;
+}
+
+/* 2. Style the widget content area */
+.widget-content {
+    /* Ensures the text doesn't flow underneath the delete button */
+    display: block;
+    padding-right: 25px;
+    text-align: left; /* Better alignment for title/type content */
+}
+
+/* 3. Style the delete button itself */
+.delete-widget {
+    position: absolute; /* Position relative to the .widget parent */
+    top: 10px;          /* Adjusted for better spacing */
+    right: 10px;        /* Adjusted for better spacing */
+    background: none;   /* No background to match the dark theme */
+    border: none;       /* No border */
+    color: #ef4444;     /* Tailwind's 'red-500' for a strong delete cue */
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 5px;
+    opacity: 0.6;       /* Subtle presence when not hovered */
+    transition: all 0.2s ease;
+    line-height: 1;     /* Prevents icon movement due to line height */
+}
+
+/* 4. Define the hover state */
+.delete-widget:hover {
+    opacity: 1;             /* Full opacity on hover */
+    color: #f87171;         /* Slightly brighter red on hover */
+    transform: scale(1.1);  /* Subtle visual feedback */
+}
+
+/* Ensure widget h4 and p elements (added in the JS) look good */
+.widget h4 {
+    font-size: 1.2rem;
+    margin-bottom: 5px;
+    color: #ffffff;
+}
+
+.widget p {
+    font-size: 0.9rem;
+    color: #94a3b8;
+}

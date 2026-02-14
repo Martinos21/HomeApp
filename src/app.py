@@ -1,20 +1,17 @@
+import itertools
+
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import random
 import socket
 import uuid
+from src.tools.hotspot import start_hotspot, stop_hotspot
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = "smart_home_secret"
 
 widgets = []
+widget_id_counter = itertools.count(1)
 
-# Simulate sensor data
-def get_sensor_data():
-    return {
-        "temperature": round(random.uniform(20, 25), 2),
-        "humidity": round(random.uniform(40, 60), 2),
-        "co2": random.randint(400, 800)
-    }
 
 # Get Raspberry Pi IP and MAC
 def get_network_info():
@@ -32,18 +29,32 @@ def home():
 def dashboard():
     return render_template('dashboard.html', widgets=widgets)
 
+
 @app.route('/add_widget', methods=['POST'])
 def add_widget():
     data = request.get_json()
     title = data.get('title')
     widget_type = data.get('type')
 
-    # You can store this in DB later
-    return jsonify({
-        'success': True,
-        'title': title,
-        'type': widget_type
-    })
+    new_id = f'widget-{next(widget_id_counter)}'
+    new_widget = {'id': new_id,'title': title,'type': widget_type}
+    widgets.append(new_widget)
+
+    return jsonify({'success': True,'id': new_id,'title': title,'type': widget_type})
+
+@app.route('/delete_widget', methods=['POST'])
+def delete_widget():
+        data = request.get_json()
+        widget_id_to_delete = data.get('id')
+
+        global widgets
+        initial_count = len(widgets)
+        widgets = [w for w in widgets if w.get('id') != widget_id_to_delete]
+
+        if len(widgets) < initial_count:
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'message': 'Widget not found'}), 404
 
 @app.route('/devices')
 def devices():
@@ -54,5 +65,7 @@ def settings():
     return render_template('settings.html')
 
 if __name__ == '__main__':
+    stop_hotspot()
+    start_hotspot(ssid="test", password="test1234")
     app.run(host='0.0.0.0', port=8000, debug=True)
 

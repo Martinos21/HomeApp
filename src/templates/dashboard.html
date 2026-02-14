@@ -8,7 +8,6 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-  <!-- Sidebar -->
   <div class="sidebar">
     <h1 class="logo">
       <i class="fas fa-home"></i> SmartHome
@@ -26,18 +25,21 @@
     </nav>
   </div>
 
-  <!-- Main Content -->
   <div class="main-content">
     <h2 class="page-title">Dashboard</h2>
     <p class="page-subtitle">Welcome to your smart home dashboard!</p>
     <div class="widget-container">
       {% for w in widgets %}
-        <div class="widget">{{ w }}</div>
+        <div class="widget">
+          <span class="widget-content">{{ w }}</span>
+          <button class="delete-widget" data-widget-id="{{ w }}">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
       {% endfor %}
     </div>
   </div>
 <button class="addCardButton" > + </button>
-<!-- Modal -->
 <div class="modal" id="widgetModal">
   <div class="modal-content">
     <h3>Create Widget</h3>
@@ -71,6 +73,45 @@
   const titleInput = document.getElementById('widgetTitle');
   const typeSelect = document.getElementById('widgetType');
 
+  // --- DELETE WIDGET LOGIC FUNCTION ---
+  function setupDeleteListener(buttonElement) {
+    buttonElement.addEventListener('click', (event) => {
+      // Get the identifier from the data attribute
+      const widgetId = event.currentTarget.getAttribute('data-widget-id');
+      const widgetElement = event.currentTarget.closest('.widget');
+
+      if (!widgetId) {
+        console.error("Widget ID not found for deletion.");
+        return;
+      }
+
+      // 1. Send request to the server to delete
+      fetch('/delete_widget', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: widgetId })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          // 2. Remove the widget element from the DOM on success
+          if (widgetElement) {
+            widgetElement.remove();
+          }
+        } else {
+          alert('Failed to delete widget on server.');
+        }
+      })
+      .catch(error => {
+        console.error('Error deleting widget:', error);
+        alert('An error occurred during deletion.');
+      });
+    });
+  }
+
+  // Apply the delete listener to all existing delete buttons on page load
+  document.querySelectorAll('.delete-widget').forEach(setupDeleteListener);
+
   // Open form
   button.addEventListener('click', () => {
     modal.style.display = 'flex';
@@ -85,6 +126,9 @@
   createBtn.addEventListener('click', () => {
     const title = titleInput.value;
     const type = typeSelect.value;
+    // We assume the server will use a combination of title/type or a generated ID for deletion
+    // For client-side creation, we'll use the title as the temporary ID
+    const widgetId = title;
 
     if (!title) {
       alert("Please enter a widget title");
@@ -98,21 +142,40 @@
     })
     .then(res => res.json())
     .then(data => {
+      // IMPORTANT: In a robust application, data.success should also return a unique ID.
+      // If data.id is returned by the server, use that instead of widgetId (which is 'title').
+
       if (data.success) {
         const widget = document.createElement('div');
         widget.classList.add('widget');
+
+        // Create the delete button
+        const deleteButton = document.createElement('button');
+        deleteButton.classList.add('delete-widget');
+        deleteButton.setAttribute('data-widget-id', data.id || widgetId); // Use server ID or fallback
+        deleteButton.innerHTML = '<i class="fas fa-times"></i>';
+
+        // Setup listener for the newly created button
+        setupDeleteListener(deleteButton);
+
+        // Add the widget content
         widget.innerHTML = `
-          <h4>${title}</h4>
-          <p>Type: ${type}</p>
+          <span class="widget-content">
+            <h4>${title}</h4>
+            <p>Type: ${type}</p>
+          </span>
         `;
+        widget.appendChild(deleteButton); // Append the button to the widget
+
         container.appendChild(widget);
 
         // Reset and close
         titleInput.value = '';
         modal.style.display = 'none';
+      } else {
+         alert("Failed to create widget on server.");
       }
     });
   });
 </script>
 </html>
-
