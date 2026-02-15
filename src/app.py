@@ -65,7 +65,7 @@ def settings():
     return render_template('settings.html')
 
 if __name__ == '__main__':
-    stop_hotspot()
-    start_hotspot(ssid="test", password="test1234")
+    #stop_hotspot()
+    #start_hotspot(ssid="test", password="test1234")
     app.run(host='0.0.0.0', port=8000, debug=True)
 
