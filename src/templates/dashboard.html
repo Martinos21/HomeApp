@@ -31,8 +31,11 @@
     <div class="widget-container">
       {% for w in widgets %}
         <div class="widget">
-          <span class="widget-content">{{ w }}</span>
-          <button class="delete-widget" data-widget-id="{{ w }}">
+          <span class="widget-content">
+            <h4>{{ w.title }}</h4>
+            <p>Source: {{ w.type }}</p>
+          </span>
+          <button class="delete-widget" data-widget-id="{{ w.id }}">
             <i class="fas fa-times"></i>
           </button>
         </div>
@@ -47,12 +50,15 @@
     <label>Widget Title</label>
     <input type="text" id="widgetTitle" placeholder="Enter widget name" />
 
-    <label>Data to display</label>
+    <label>Data to display (Database Tables)</label>
     <select id="widgetType">
-      <option value="temperature">Temperature</option>
-      <option value="humidity">Humidity</option>
-      <option value="energy">Energy Usage</option>
-      <option value="lights">Lights Status</option>
+      {% if db_tables %}
+        {% for table in db_tables %}
+          <option value="{{ table }}">{{ table|capitalize }}</option>
+        {% endfor %}
+      {% else %}
+        <option value="">No tables found</option>
+      {% endif %}
     </select>
 
     <div class="modal-buttons">

@@ -1,5 +1,5 @@
 import itertools
-
+from tools.dbTools import get_db_tables
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import random
 import socket
@@ -27,8 +27,8 @@ def home():
 
 @app.route('/dashboard')
 def dashboard():
-    return render_template('dashboard.html', widgets=widgets)
-
+    db_tables = get_db_tables()
+    return render_template('dashboard.html', widgets=widgets, db_tables=db_tables)
 
 @app.route('/add_widget', methods=['POST'])
 def add_widget():
