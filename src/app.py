@@ -20,7 +20,6 @@ def get_network_info():
     mac_address = ':'.join(['{:02x}'.format((uuid.getnode() >> i) & 0xff) for i in range(0, 48, 8)][::-1])
     return {"ip": ip_address, "mac": mac_address}
 
-
 @app.route('/')
 def home():
     return redirect(url_for('dashboard'))
