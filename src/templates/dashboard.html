@@ -27,14 +27,17 @@
 
   <div class="main-content">
     <h2 class="page-title">Dashboard</h2>
-    <p class="page-subtitle">Welcome to your smart home dashboard!</p>
-    <div class="widget-container">
+    <p class="page-subtitle">Real-time sensor monitoring</p>
+
+    <div class="widget-container" id="widgetContainer">
       {% for w in widgets %}
         <div class="widget">
-          <span class="widget-content">
+          <div class="widget-content">
             <h4>{{ w.title }}</h4>
+            <p class="widget-meta">{{ w.sensor }} | {{ w.calc }}</p>
+            <span class="live-value" data-id="{{ w.id }}">--</span>
             <p>Source: {{ w.type }}</p>
-          </span>
+          </div>
           <button class="delete-widget" data-widget-id="{{ w.id }}">
             <i class="fas fa-times"></i>
           </button>
@@ -42,56 +45,77 @@
       {% endfor %}
     </div>
   </div>
-<button class="addCardButton" > + </button>
-<div class="modal" id="widgetModal">
-  <div class="modal-content">
-    <h3>Create Widget</h3>
 
-    <label>Widget Title</label>
-    <input type="text" id="widgetTitle" placeholder="Enter widget name" />
+  <button class="addCardButton"> + </button>
 
-    <label>Data to display (Database Tables)</label>
-    <select id="widgetType">
-      {% if db_tables %}
-        {% for table in db_tables %}
-          <option value="{{ table }}">{{ table|capitalize }}</option>
-        {% endfor %}
-      {% else %}
-        <option value="">No tables found</option>
-      {% endif %}
-    </select>
+  <div class="modal" id="widgetModal">
+    <div class="modal-content">
+      <h3>Create Widget</h3>
 
-    <div class="modal-buttons">
-      <button id="cancelBtn">Cancel</button>
-      <button id="createBtn">Create</button>
+      <label>Widget Title</label>
+      <input type="text" id="widgetTitle" placeholder="e.g. Living Room" />
+
+      <label>Location (Table)</label>
+      <select id="widgetType">
+        {% if db_tables %}
+          {% for table in db_tables %}
+            <option value="{{ table }}">{{ table|capitalize }}</option>
+          {% endfor %}
+        {% else %}
+          <option value="">No tables found</option>
+        {% endif %}
+      </select>
+
+      <label>Sensor Type</label>
+      <select id="sensorType">
+        <option value="Temp">Temperature</option>
+        <option value="Hum">Humidity</option>
+        <option value="Press">CO2</option>
+      </select>
+
+      <label>Calculation</label>
+      <select id="widgetCalc">
+        <option value="last">Current Value</option>
+        <option value="avg">Average</option>
+        <option value="min">Minimum</option>
+        <option value="max">Maximum</option>
+      </select>
+
+      <div class="modal-buttons">
+        <button id="cancelBtn" style="background: transparent; color: #94a3b8;">Cancel</button>
+        <button id="createBtn">Create</button>
+      </div>
     </div>
   </div>
-</div>
-</body>
-<script>
-  const button = document.querySelector('.addCardButton');
-  const container = document.querySelector('.widget-container');
 
+<script>
+  const container = document.getElementById('widgetContainer');
   const modal = document.getElementById('widgetModal');
+  const addBtn = document.querySelector('.addCardButton');
   const cancelBtn = document.getElementById('cancelBtn');
   const createBtn = document.getElementById('createBtn');
 
-  const titleInput = document.getElementById('widgetTitle');
-  const typeSelect = document.getElementById('widgetType');
+  // --- API LOGIC: FETCH LIVE DATA ---
+  function updateWidgetData(widgetId) {
+    fetch(`/api/widget_data/${widgetId}`)
+      .then(res => res.json())
+      .then(data => {
+        const el = document.querySelector(`.live-value[data-id="${widgetId}"]`);
+        if (el) {
+          el.innerText = data.value;
+          el.style.opacity = 0.5;
+          setTimeout(() => el.style.opacity = 1, 200);
+        }
+      })
+      .catch(err => console.error("Refresh error:", err));
+  }
 
-  // --- DELETE WIDGET LOGIC FUNCTION ---
+  // --- DELETE LOGIC ---
   function setupDeleteListener(buttonElement) {
     buttonElement.addEventListener('click', (event) => {
-      // Get the identifier from the data attribute
       const widgetId = event.currentTarget.getAttribute('data-widget-id');
       const widgetElement = event.currentTarget.closest('.widget');
 
-      if (!widgetId) {
-        console.error("Widget ID not found for deletion.");
-        return;
-      }
-
-      // 1. Send request to the server to delete
       fetch('/delete_widget', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -99,89 +123,64 @@
       })
       .then(res => res.json())
       .then(data => {
-        if (data.success) {
-          // 2. Remove the widget element from the DOM on success
-          if (widgetElement) {
-            widgetElement.remove();
-          }
-        } else {
-          alert('Failed to delete widget on server.');
-        }
-      })
-      .catch(error => {
-        console.error('Error deleting widget:', error);
-        alert('An error occurred during deletion.');
+        if (data.success) { widgetElement.remove(); }
       });
     });
   }
 
-  // Apply the delete listener to all existing delete buttons on page load
+  // Initial setup
   document.querySelectorAll('.delete-widget').forEach(setupDeleteListener);
+  document.querySelectorAll('.live-value').forEach(el => updateWidgetData(el.dataset.id));
 
-  // Open form
-  button.addEventListener('click', () => {
-    modal.style.display = 'flex';
-  });
+  // Polling (5 Minutes)
+  setInterval(() => {
+    document.querySelectorAll('.live-value').forEach(el => updateWidgetData(el.dataset.id));
+  }, 300000);
 
-  // Close form
-  cancelBtn.addEventListener('click', () => {
-    modal.style.display = 'none';
-  });
+  // Modal controls
+  addBtn.onclick = () => modal.style.display = 'flex';
+  cancelBtn.onclick = () => modal.style.display = 'none';
 
-  // Create widget
   createBtn.addEventListener('click', () => {
-    const title = titleInput.value;
-    const type = typeSelect.value;
-    // We assume the server will use a combination of title/type or a generated ID for deletion
-    // For client-side creation, we'll use the title as the temporary ID
-    const widgetId = title;
+    const payload = {
+      title: document.getElementById('widgetTitle').value,
+      type: document.getElementById('widgetType').value,
+      sensor: document.getElementById('sensorType').value,
+      calc: document.getElementById('widgetCalc').value
+    };
 
-    if (!title) {
-      alert("Please enter a widget title");
-      return;
-    }
+    if (!payload.title) return alert("Title is required");
 
     fetch('/add_widget', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, type })
+      body: JSON.stringify(payload)
     })
     .then(res => res.json())
     .then(data => {
-      // IMPORTANT: In a robust application, data.success should also return a unique ID.
-      // If data.id is returned by the server, use that instead of widgetId (which is 'title').
-
       if (data.success) {
         const widget = document.createElement('div');
         widget.classList.add('widget');
-
-        // Create the delete button
-        const deleteButton = document.createElement('button');
-        deleteButton.classList.add('delete-widget');
-        deleteButton.setAttribute('data-widget-id', data.id || widgetId); // Use server ID or fallback
-        deleteButton.innerHTML = '<i class="fas fa-times"></i>';
-
-        // Setup listener for the newly created button
-        setupDeleteListener(deleteButton);
-
-        // Add the widget content
         widget.innerHTML = `
-          <span class="widget-content">
-            <h4>${title}</h4>
-            <p>Type: ${type}</p>
-          </span>
+          <div class="widget-content">
+            <h4>${payload.title}</h4>
+            <p class="widget-meta">${payload.sensor.toUpperCase()} | ${payload.calc.toUpperCase()}</p>
+            <span class="live-value" data-id="${data.id}">--</span>
+            <p>Source: ${payload.type}</p>
+          </div>
+          <button class="delete-widget" data-widget-id="${data.id}">
+            <i class="fas fa-times"></i>
+          </button>
         `;
-        widget.appendChild(deleteButton); // Append the button to the widget
-
         container.appendChild(widget);
+        setupDeleteListener(widget.querySelector('.delete-widget'));
+        updateWidgetData(data.id);
 
-        // Reset and close
-        titleInput.value = '';
+        document.getElementById('widgetTitle').value = '';
         modal.style.display = 'none';
-      } else {
-         alert("Failed to create widget on server.");
       }
     });
   });
 </script>
+</body>
 </html>

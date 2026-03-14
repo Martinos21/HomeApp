@@ -230,3 +230,45 @@ body {
     font-size: 0.9rem;
     color: #94a3b8;
 }
+
+/* ===== Live Data Display ===== */
+.live-value {
+  display: block;
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #3b82f6; /* Matching your theme's blue */
+  margin: 12px 0;
+  transition: opacity 0.3s ease;
+}
+
+.widget-meta {
+  font-size: 0.7rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+}
+
+/* ===== Form Styling inside Modal ===== */
+.modal-content label {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-top: 5px;
+}
+
+.modal-content select,
+.modal-content input {
+  background: #0f172a;
+  border: 1px solid #334155;
+  color: #e2e8f0;
+  padding: 10px;
+  border-radius: 8px;
+  width: 100%;
+  font-family: inherit;
+}
+
+.modal-content select:focus,
+.modal-content input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}

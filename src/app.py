@@ -5,6 +5,7 @@ import random
 import socket
 import uuid
 from src.tools.hotspot import start_hotspot, stop_hotspot
+from src.tools.dbTools import get_widget_data
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = "smart_home_secret"
@@ -29,17 +30,31 @@ def dashboard():
     db_tables = get_db_tables()
     return render_template('dashboard.html', widgets=widgets, db_tables=db_tables)
 
+
 @app.route('/add_widget', methods=['POST'])
 def add_widget():
     data = request.get_json()
-    title = data.get('title')
-    widget_type = data.get('type')
-
     new_id = f'widget-{next(widget_id_counter)}'
-    new_widget = {'id': new_id,'title': title,'type': widget_type}
-    widgets.append(new_widget)
 
-    return jsonify({'success': True,'id': new_id,'title': title,'type': widget_type})
+    new_widget = {
+        'id': new_id,
+        'title': data.get('title'),
+        'table': data.get('type'),  # e.g., 'living_room'
+        'sensor': data.get('sensor'),  # e.g., 'temp', 'humidity'
+        'calc': data.get('calc')  # e.g., 'avg'
+    }
+    widgets.append(new_widget)
+    return jsonify({'success': True, 'id': new_id})
+
+
+@app.route('/api/widget_data/<widget_id>')
+def widget_data(widget_id):
+    widget = next((w for w in widgets if w['id'] == widget_id), None)
+    if not widget:
+        return jsonify({'error': 'Not found'}), 404
+
+    val = get_widget_data(widget['table'], widget['sensor'], widget['calc'])
+    return jsonify({'value': val})
 
 @app.route('/delete_widget', methods=['POST'])
 def delete_widget():
