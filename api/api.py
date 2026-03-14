@@ -11,12 +11,15 @@ def data():
     d = request.json
     tName = request.headers.get('Name')
     current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    values = tuple(d.values()) + (current_time,)
+    co2 = d.get('co2')
+    temp = d.get('temp')
+    hum = d.get('hum')
+    values = (co2, temp, hum, current_time)
 
     with sqlite3.connect('/root/home.db') as con:
         cur = con.cursor()
-        cur.execute(f"CREATE TABLE IF NOT EXISTS {tName} (Press FLOAT, Temp FLOAT, Hum FLOAT, Tim TEXT)")
-        cur.execute(f"INSERT INTO {tName} (Press, Temp, Hum, Tim) VALUES (?, ?, ?, ?)", values)
+        cur.execute(f"CREATE TABLE IF NOT EXISTS {tName} (CO2 FLOAT, Temp FLOAT, Hum FLOAT, Tim TEXT)")
+        cur.execute(f"INSERT INTO {tName} (CO2, Temp, Hum, Tim) VALUES (?, ?, ?, ?)", values)
         con.commit()
         print("Data has been written to the database.")
     return "OK"
