@@ -36,6 +36,7 @@
             <h4>{{ w.title }}</h4>
             <p class="widget-meta">{{ w.sensor }} | {{ w.calc }}</p>
             <span class="live-value" data-id="{{ w.id }}">--</span>
+            <p class="last-updated" data-time-id="{{ w.id }}">Updated: --</p>
             <p>Source: {{ w.type }}</p>
           </div>
           <button class="delete-widget" data-widget-id="{{ w.id }}">
@@ -95,22 +96,54 @@
   const cancelBtn = document.getElementById('cancelBtn');
   const createBtn = document.getElementById('createBtn');
 
-  // --- API LOGIC: FETCH LIVE DATA ---
+  /**
+   * 1. RELATIVE TIME CALCULATOR
+   * Converts a database timestamp into a human-readable string.
+   */
+  function getTimeAgo(dateString) {
+    if (!dateString || dateString === "None") return "Never";
+
+    // Replace hyphens with slashes for broader browser support (Safari/iOS)
+    const past = new Date(dateString.replace(/-/g, "/"));
+    const now = new Date();
+    const seconds = Math.floor((now - past) / 1000);
+
+    if (seconds < 60) return "Just now";
+    if (seconds < 3600) return Math.floor(seconds / 60) + "m ago";
+    if (seconds < 86400) return Math.floor(seconds / 3600) + "h ago";
+    return Math.floor(seconds / 86400) + "d ago";
+  }
+
+  /**
+   * 2. API LOGIC: FETCH LIVE DATA
+   * Now handles both the sensor value and the timestamp.
+   */
   function updateWidgetData(widgetId) {
     fetch(`/api/widget_data/${widgetId}`)
       .then(res => res.json())
       .then(data => {
-        const el = document.querySelector(`.live-value[data-id="${widgetId}"]`);
-        if (el) {
-          el.innerText = data.value;
-          el.style.opacity = 0.5;
-          setTimeout(() => el.style.opacity = 1, 200);
+        const valEl = document.querySelector(`.live-value[data-id="${widgetId}"]`);
+        const timeEl = document.querySelector(`.last-updated[data-time-id="${widgetId}"]`);
+
+        if (valEl) {
+          valEl.innerText = data.value;
+          // Visual feedback of update
+          valEl.style.opacity = 0.5;
+          setTimeout(() => valEl.style.opacity = 1, 200);
+        }
+
+        if (timeEl && data.timestamp) {
+          // Store the raw timestamp in a data attribute for the background timer
+          timeEl.setAttribute('data-raw-time', data.timestamp);
+          timeEl.innerText = `Updated: ${getTimeAgo(data.timestamp)}`;
         }
       })
       .catch(err => console.error("Refresh error:", err));
   }
 
-  // --- DELETE LOGIC ---
+  /**
+   * 3. DELETE LOGIC
+   */
   function setupDeleteListener(buttonElement) {
     buttonElement.addEventListener('click', (event) => {
       const widgetId = event.currentTarget.getAttribute('data-widget-id');
@@ -128,16 +161,32 @@
     });
   }
 
-  // Initial setup
+  /**
+   * 4. INITIALIZATION & TIMERS
+   */
+
+  // Initial setup for existing widgets
   document.querySelectorAll('.delete-widget').forEach(setupDeleteListener);
   document.querySelectorAll('.live-value').forEach(el => updateWidgetData(el.dataset.id));
 
-  // Polling (5 Minutes)
+  // Polling A: Refresh values from Database every 5 minutes
   setInterval(() => {
     document.querySelectorAll('.live-value').forEach(el => updateWidgetData(el.dataset.id));
   }, 300000);
 
-  // Modal controls
+  // Polling B: Refresh "Time Ago" text every 30 seconds (without hitting the DB)
+  setInterval(() => {
+    document.querySelectorAll('.last-updated').forEach(el => {
+      const rawTime = el.getAttribute('data-raw-time');
+      if (rawTime) {
+        el.innerText = `Updated: ${getTimeAgo(rawTime)}`;
+      }
+    });
+  }, 30000);
+
+  /**
+   * 5. MODAL & WIDGET CREATION
+   */
   addBtn.onclick = () => modal.style.display = 'flex';
   cancelBtn.onclick = () => modal.style.display = 'none';
 
@@ -166,6 +215,7 @@
             <h4>${payload.title}</h4>
             <p class="widget-meta">${payload.sensor.toUpperCase()} | ${payload.calc.toUpperCase()}</p>
             <span class="live-value" data-id="${data.id}">--</span>
+            <p class="last-updated" data-time-id="${data.id}">Updated: --</p>
             <p>Source: ${payload.type}</p>
           </div>
           <button class="delete-widget" data-widget-id="${data.id}">
@@ -173,9 +223,12 @@
           </button>
         `;
         container.appendChild(widget);
+
+        // Attach logic to the new widget
         setupDeleteListener(widget.querySelector('.delete-widget'));
         updateWidgetData(data.id);
 
+        // Reset and close
         document.getElementById('widgetTitle').value = '';
         modal.style.display = 'none';
       }

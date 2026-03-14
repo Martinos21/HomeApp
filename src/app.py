@@ -53,8 +53,8 @@ def widget_data(widget_id):
     if not widget:
         return jsonify({'error': 'Not found'}), 404
 
-    val = get_widget_data(widget['table'], widget['sensor'], widget['calc'])
-    return jsonify({'value': val})
+    data = get_widget_data(widget['table'], widget['sensor'], widget['calc'])
+    return jsonify(data) # Returns {"value": 22.5, "timestamp": "2026-03-14 20:50:00"}
 
 @app.route('/delete_widget', methods=['POST'])
 def delete_widget():

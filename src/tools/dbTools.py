@@ -14,11 +14,13 @@ def get_widget_data(table_name, column_name, calculation):
         conn = sqlite3.connect('/root/home.db')
         cursor = conn.cursor()
 
+        # We fetch the value AND the timestamp (Tim)
+        # Note: For min/max/avg, we usually want the latest timestamp in that table
         ops = {
-            "last": f"SELECT {column_name} FROM {table_name} ORDER BY Tim DESC LIMIT 1",
-            "min": f"SELECT MIN({column_name}) FROM {table_name}",
-            "max": f"SELECT MAX({column_name}) FROM {table_name}",
-            "avg": f"SELECT AVG({column_name}) FROM {table_name}"
+            "last": f"SELECT {column_name}, Tim FROM {table_name} ORDER BY Tim DESC LIMIT 1",
+            "min": f"SELECT MIN({column_name}), MAX(Tim) FROM {table_name}",
+            "max": f"SELECT MAX({column_name}), MAX(Tim) FROM {table_name}",
+            "avg": f"SELECT AVG({column_name}), MAX(Tim) FROM {table_name}"
         }
 
         query = ops.get(calculation)
@@ -27,8 +29,9 @@ def get_widget_data(table_name, column_name, calculation):
         conn.close()
 
         if result and result[0] is not None:
-            return round(result[0], 2) if isinstance(result[0], float) else result[0]
-        return "--"
+            val = round(result[0], 2) if isinstance(result[0], float) else result[0]
+            return {"value": val, "timestamp": result[1]}
+        return {"value": "--", "timestamp": None}
     except Exception as e:
         print(f"DB Error: {e}")
-        return "Err"
+        return {"value": "Err", "timestamp": None}

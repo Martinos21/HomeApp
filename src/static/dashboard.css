@@ -272,3 +272,11 @@ body {
   outline: none;
   border-color: #3b82f6;
 }
+
+.last-updated {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-top: -10px;
+    margin-bottom: 10px;
+    font-style: italic;
+}
