@@ -35,3 +35,29 @@ def get_widget_data(table_name, column_name, calculation):
     except Exception as e:
         print(f"DB Error: {e}")
         return {"value": "Err", "timestamp": None}
+
+
+def get_historical_data(table_name, column_name, limit=20):
+    try:
+        conn = sqlite3.connect('/root/home.db')
+        cursor = conn.cursor()
+        # Fetch data ordered by time
+        query = f"SELECT {column_name}, Tim FROM {table_name} ORDER BY Tim DESC LIMIT ?"
+        cursor.execute(query, (limit,))
+        results = cursor.fetchall()
+        conn.close()
+
+        if not results:
+            return {"values": [], "labels": [], "latest_timestamp": None}
+
+        # The first row in DESC order is the newest
+        latest_ts = results[0][1]
+
+        results.reverse()  # Reverse for left-to-right graphing
+        return {
+            "values": [row[0] for row in results],
+            "labels": [row[1].split(' ')[1] for row in results],
+            "latest_timestamp": latest_ts
+        }
+    except Exception as e:
+        return {"values": [], "labels": [], "latest_timestamp": None}

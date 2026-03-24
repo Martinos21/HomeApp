@@ -5,7 +5,7 @@ import random
 import socket
 import uuid
 from src.tools.hotspot import start_hotspot, stop_hotspot
-from src.tools.dbTools import get_widget_data
+from src.tools.dbTools import get_widget_data, get_historical_data
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = "smart_home_secret"
@@ -55,6 +55,16 @@ def widget_data(widget_id):
 
     data = get_widget_data(widget['table'], widget['sensor'], widget['calc'])
     return jsonify(data) # Returns {"value": 22.5, "timestamp": "2026-03-14 20:50:00"}
+
+
+@app.route('/api/widget_history/<widget_id>')
+def widget_history(widget_id):
+    widget = next((w for w in widgets if w['id'] == widget_id), None)
+    if not widget:
+        return jsonify({'error': 'Not found'}), 404
+
+    data = get_historical_data(widget['table'], widget['sensor'], limit=20)
+    return jsonify(data)
 
 @app.route('/delete_widget', methods=['POST'])
 def delete_widget():
