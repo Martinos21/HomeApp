@@ -1,6 +1,7 @@
 import sqlite3
 from flask import Flask, request
 import datetime
+import paho.mqtt.publish as publish
 
 from src.tools.hotspot import start_hotspot
 
@@ -24,6 +25,12 @@ def data():
         print("Data has been written to the database.")
     return "OK"
 
+@app.route('/mqtt', methods=['POST'])
+def mqtt():
+    d = request.json
+    topic = d.get('topic')
+    payload = d.get('payload')
+    publish.single(topic, payload, hostname="localhost")
 
 if __name__ == "__main__":
     # Run Flask server

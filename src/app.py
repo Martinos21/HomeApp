@@ -6,6 +6,7 @@ import socket
 import uuid
 from src.tools.hotspot import start_hotspot, stop_hotspot
 from src.tools.dbTools import get_widget_data, get_historical_data
+import requests
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = "smart_home_secret"
