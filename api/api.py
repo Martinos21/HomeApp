@@ -27,6 +27,6 @@ def data():
 
 if __name__ == "__main__":
     # Run Flask server
-    start_hotspot(ssid="test", password="test1234")
-    con = sqlite3.connect('/root/home.db')
+    # start_hotspot(ssid="test", password="test1234")
+    # con = sqlite3.connect('/root/home.db')
     app.run(host="0.0.0.0", port=8070, debug=True)
