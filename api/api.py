@@ -1,8 +1,7 @@
 import sqlite3
-from flask import Flask, request
+from flask import Flask, request, jsonify
 import datetime
 import paho.mqtt.publish as publish
-
 from src.tools.hotspot import start_hotspot
 
 app = Flask(__name__)
@@ -25,12 +24,16 @@ def data():
         print("Data has been written to the database.")
     return "OK"
 
-@app.route('/mqtt', methods=['POST'])
-def mqtt():
-    d = request.json
-    topic = d.get('topic')
-    payload = d.get('payload')
-    publish.single(topic, payload, hostname="localhost")
+
+@app.route('/relay/<int:relay_id>/<string:action>', methods=['POST'])
+def control_relay(relay_id, action):
+    # relay_id: 1-6, action: ON/OFF
+    topic = f"relay/relay{relay_id}"
+    publish.single(topic, action, hostname="10.42.0.1")
+
+    print(f"Relé {relay_id} -> {action.lower()}")
+    return jsonify({"status": "sent", "relay": relay_id, "action": action})
+
 
 if __name__ == "__main__":
     # Run Flask server
