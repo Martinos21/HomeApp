@@ -3,8 +3,10 @@ from flask import Flask, request, jsonify
 import datetime
 import paho.mqtt.publish as publish
 from src.tools.hotspot import start_hotspot
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 @app.route('/data', methods=['POST'])
 def data():
@@ -29,7 +31,7 @@ def data():
 def control_relay(relay_id, action):
     # relay_id: 1-6, action: ON/OFF
     topic = f"relay/relay{relay_id}"
-    publish.single(topic, action, hostname="10.42.0.1")
+    publish.single(topic, action.lower(), hostname="10.42.0.1",)
 
     print(f"Relé {relay_id} -> {action.lower()}")
     return jsonify({"status": "sent", "relay": relay_id, "action": action})
