@@ -7,13 +7,31 @@ import uuid
 from src.tools.hotspot import start_hotspot, stop_hotspot
 from src.tools.dbTools import get_widget_data, get_historical_data
 import requests
+import os
+import json
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = "smart_home_secret"
-
+SETTINGS_FILE = 'settings.json'
 widgets = []
 widget_id_counter = itertools.count(1)
 
+def get_config():
+    """Pomocná funkce pro načtení nastavení ze souboru."""
+    default_config = {
+        "username": "Domácí uživatel",
+        "email": "",
+        "refresh": "30",
+        "temp_unit": "c",
+        "security": False
+    }
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, 'r') as f:
+                return {**default_config, **json.load(f)}
+        except:
+            return default_config
+    return default_config
 
 # Get Raspberry Pi IP and MAC
 def get_network_info():
@@ -87,7 +105,22 @@ def devices():
 
 @app.route('/settings')
 def settings():
-    return render_template('settings.html')
+    config = get_config()
+    return render_template('settings.html', config=config)
+
+@app.route('/api/save_settings', methods=['POST'])
+def save_settings():
+    try:
+        new_config = request.get_json()
+        with open(SETTINGS_FILE, 'w') as f:
+            json.dump(new_config, f)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/get_config')
+def get_config_api():
+    return jsonify(get_config())
 
 if __name__ == '__main__':
     #stop_hotspot()
