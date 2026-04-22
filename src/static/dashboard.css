@@ -336,3 +336,91 @@ body {
   .main-content { margin-left: 0; width: 100%; padding: 1.5rem; }
   .widget-container { grid-template-columns: 1fr; }
 }
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  background: #1e293b;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+.quick-ranges button, .btn-apply {
+  background: #334155;
+  color: white;
+  border: none;
+  padding: 5px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.quick-ranges button:hover, .btn-apply:hover {
+  background: #3b82f6;
+}
+.custom-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+.custom-range input {
+  background: #0f172a;
+  border: 1px solid #334155;
+  color: white;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+/* Add your existing dashboard.css content here, then append these: */
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  background: #1e293b;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #334155;
+}
+
+.quick-ranges button, .btn-apply {
+  background: #334155;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.quick-ranges button:hover, .btn-apply:hover {
+  background: #3b82f6;
+}
+
+.custom-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #94a3b8;
+}
+
+.flatpickr-input {
+  background: #0f172a !important;
+  border: 1px solid #334155 !important;
+  color: white !important;
+  padding: 5px 10px;
+  border-radius: 4px;
+  width: 140px;
+}
+
+.graph-modal-content {
+  max-width: 900px !important;
+  width: 95% !important;
+}

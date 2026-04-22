@@ -1,4 +1,6 @@
 import sqlite3
+from datetime import timedelta, datetime
+
 
 def get_db_tables():
     conn = sqlite3.connect('/root/home.db')
@@ -36,28 +38,60 @@ def get_widget_data(table_name, column_name, calculation):
         print(f"DB Error: {e}")
         return {"value": "Err", "timestamp": None}
 
-
-def get_historical_data(table_name, column_name, limit=20):
+def get_historical_data(table_name, column_name, range_type=None, start_date=None, end_date=None):
     try:
         conn = sqlite3.connect('/root/home.db')
         cursor = conn.cursor()
-        # Fetch data ordered by time
-        query = f"SELECT {column_name}, Tim FROM {table_name} ORDER BY Tim DESC LIMIT ?"
-        cursor.execute(query, (limit,))
+
+        query = f"SELECT {column_name}, Tim FROM {table_name}"
+        params = []
+        where_clauses = []
+
+        if range_type:
+            now = datetime.now()
+            if range_type == 'week':
+                delta = timedelta(weeks=1)
+            elif range_type == 'month':
+                delta = timedelta(days=30)
+            elif range_type == '3months':
+                delta = timedelta(days=90)
+            elif range_type == 'year':
+                delta = timedelta(days=365)
+            else:
+                delta = None
+
+            if delta:
+                start_ts = (now - delta).strftime('%Y-%m-%d %H:%M:%S')
+                where_clauses.append("Tim >= ?")
+                params.append(start_ts)
+
+        elif start_date:
+            where_clauses.append("Tim >= ?")
+            params.append(start_date)
+            if end_date:
+                where_clauses.append("Tim <= ?")
+                params.append(end_date)
+
+        if where_clauses:
+            query += " WHERE " + " AND ".join(where_clauses)
+
+        query += " ORDER BY Tim DESC"
+
+        cursor.execute(query, params)
         results = cursor.fetchall()
         conn.close()
 
         if not results:
             return {"values": [], "labels": [], "latest_timestamp": None}
 
-        # The first row in DESC order is the newest
         latest_ts = results[0][1]
+        results.reverse()
 
-        results.reverse()  # Reverse for left-to-right graphing
         return {
             "values": [row[0] for row in results],
-            "labels": [row[1].split(' ')[1] for row in results],
+            "labels": [row[1].split(' ')[1] if ' ' in row[1] else row[1] for row in results],
             "latest_timestamp": latest_ts
         }
     except Exception as e:
+        print(f"Error: {e}")
         return {"values": [], "labels": [], "latest_timestamp": None}

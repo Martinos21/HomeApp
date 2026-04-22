@@ -78,11 +78,23 @@ def widget_data(widget_id):
 
 @app.route('/api/widget_history/<widget_id>')
 def widget_history(widget_id):
+    # Find the widget configuration
     widget = next((w for w in widgets if w['id'] == widget_id), None)
     if not widget:
         return jsonify({'error': 'Not found'}), 404
 
-    data = get_historical_data(widget['table'], widget['sensor'], limit=20)
+    range_type = request.args.get('range')
+    start_date = request.args.get('start')
+    end_date = request.args.get('end')
+
+    data = get_historical_data(
+        table_name=widget['table'],
+        column_name=widget['sensor'],
+        range_type=range_type,
+        start_date=start_date,
+        end_date=end_date
+    )
+
     return jsonify(data)
 
 @app.route('/delete_widget', methods=['POST'])

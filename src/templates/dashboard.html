@@ -6,7 +6,12 @@
   <title>Smart Home Dashboard</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 </head>
 <body>
 
@@ -14,7 +19,6 @@
     <h1 class="logo"><i class="fas fa-home"></i> SmartHome</h1>
     <nav>
       <a href="{{ url_for('dashboard') }}" class="nav-item active"><i class="fas fa-th-large"></i> Dashboard</a>
-      <!--<a href="{{ url_for('devices') }}" class="nav-item"><i class="fas fa-lightbulb"></i> Devices</a>-->
       <a href="{{ url_for('settings') }}" class="nav-item"><i class="fas fa-cog"></i> Settings</a>
     </nav>
   </div>
@@ -63,17 +67,14 @@
   <div class="modal" id="widgetModal">
     <div class="modal-content">
       <h3>Přidat nový prvek</h3>
-
       <label>Název widgetu</label>
       <input type="text" id="widgetTitle" placeholder="Např. Světlo obývák" />
-
       <label>Místnost (Tabulka v DB)</label>
       <select id="widgetType">
         {% for table in db_tables %}
           <option value="{{ table }}">{{ table|capitalize }}</option>
         {% endfor %}
       </select>
-
       <label>Typ prvku</label>
       <select id="sensorType" onchange="toggleRelayView()">
         <option value="Temp">Teplota</option>
@@ -81,7 +82,6 @@
         <option value="Press">CO2 / Tlak</option>
         <option value="Relay">Ovládání Relé (Switch)</option>
       </select>
-
       <label id="calcLabel">Výpočet / ID Relé</label>
       <select id="widgetCalc">
         <option value="last">Aktuální hodnota (nebo Relé 1)</option>
@@ -91,7 +91,6 @@
         <option value="5">Relé 5</option>
         <option value="6">Relé 6</option>
       </select>
-
       <div class="modal-buttons">
         <button id="cancelBtn" style="background: transparent; color: #94a3b8;">Zrušit</button>
         <button id="createBtn">Vytvořit</button>
@@ -100,32 +99,62 @@
   </div>
 
   <div class="modal" id="graphOverlay">
-    <div class="modal-content graph-modal-content">
-      <h3 id="overlayTitle">Historie senzoru</h3>
-      <div style="height: 350px; margin: 20px 0;">
-        <canvas id="overlayChart"></canvas>
-      </div>
-      <div class="modal-buttons">
-        <button id="closeOverlayBtn">Zavřít</button>
+      <div class="modal-content graph-modal-content">
+        <h3 id="overlayTitle">Historie senzoru</h3>
+
+        <div class="filter-bar">
+          <div class="quick-ranges">
+            <button onclick="updateGraphRange('all')">Vše</button>
+            <button onclick="updateGraphRange('week')">Týden</button>
+            <button onclick="updateGraphRange('month')">Měsíc</button>
+            <button onclick="updateGraphRange('year')">Rok</button>
+          </div>
+
+          <div class="custom-range">
+            <input type="text" id="dateFrom" placeholder="Od dne">
+            <span>do</span>
+            <input type="text" id="dateTo" placeholder="Do dne">
+            <button class="btn-apply" onclick="updateGraphCustom()">Použít</button>
+          </div>
+        </div>
+
+        <div style="height: 400px; margin: 20px 0;">
+          <canvas id="overlayChart"></canvas>
+        </div>
+
+        <div class="modal-buttons">
+          <button id="closeOverlayBtn">Zavřít</button>
+        </div>
       </div>
     </div>
-  </div>
 
 <script>
-/**
- * KONFIGURACE A API
- */
 const API_URL = `http://${window.location.hostname}:8070`;
+let globalOverlayChart = null;
+let currentActiveWidgetId = null;
 
-// Funkce pro ovládání relé přes port 8070
+/** * FLATPICKR INITIALIZATION
+ */
+const fpFrom = flatpickr("#dateFrom", {
+    enableTime: true,
+    dateFormat: "Y-m-d H:i",
+    time_24hr: true,
+});
+
+const fpTo = flatpickr("#dateTo", {
+    enableTime: true,
+    dateFormat: "Y-m-d H:i",
+    time_24hr: true,
+});
+
+/**
+ * RELAY CONTROL
+ */
 async function sendRelayControl(relayNum, action, widgetId) {
-  // Převod textových hodnot na čísla (pokud někdo vybral avg/min/max)
   const map = { 'last': 1, 'avg': 2, 'min': 3, 'max': 4, '5': 5, '6': 6 };
   const realNum = map[relayNum] || relayNum;
-
   const statusEl = document.getElementById(`relay-status-${widgetId}`);
   statusEl.innerText = "Odesílám...";
-
   try {
     const res = await fetch(`${API_URL}/relay/${realNum}/${action}`, { method: 'POST' });
     if (res.ok) {
@@ -139,13 +168,12 @@ async function sendRelayControl(relayNum, action, widgetId) {
 }
 
 /**
- * LOGIKA WIDGETŮ
+ * UI LOGIC
  */
 const widgetModal = document.getElementById('widgetModal');
 const graphOverlay = document.getElementById('graphOverlay');
 const addBtn = document.querySelector('.addCardButton');
 
-// Změna popisků v modálu při výběru Relé
 function toggleRelayView() {
     const type = document.getElementById('sensorType').value;
     const label = document.getElementById('calcLabel');
@@ -156,7 +184,6 @@ addBtn.onclick = () => { widgetModal.style.display = 'flex'; };
 document.getElementById('cancelBtn').onclick = () => { widgetModal.style.display = 'none'; };
 document.getElementById('closeOverlayBtn').onclick = () => { graphOverlay.style.display = 'none'; };
 
-// Vytvoření widgetu
 document.getElementById('createBtn').onclick = () => {
   const payload = {
     title: document.getElementById('widgetTitle').value,
@@ -164,17 +191,13 @@ document.getElementById('createBtn').onclick = () => {
     sensor: document.getElementById('sensorType').value,
     calc: document.getElementById('widgetCalc').value
   };
-
   fetch('/add_widget', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
-  }).then(res => res.json()).then(data => {
-    if (data.success) location.reload();
-  });
+  }).then(res => res.json()).then(data => { if (data.success) location.reload(); });
 };
 
-// Mazání widgetu
 document.querySelectorAll('.delete-widget').forEach(btn => {
   btn.onclick = (e) => {
     e.stopPropagation();
@@ -188,28 +211,44 @@ document.querySelectorAll('.delete-widget').forEach(btn => {
 });
 
 /**
- * DATA A GRAFY
+ * GRAPH LOGIC
  */
-let globalOverlayChart = null;
+function showGraphOverlay(widgetId, title) {
+  currentActiveWidgetId = widgetId;
+  document.getElementById('overlayTitle').innerText = `${title} - Historie`;
 
-function getTimeAgo(dateString) {
-  if (!dateString || dateString === "None") return "Nikdy";
-  const past = new Date(dateString.replace(/-/g, "/"));
-  const now = new Date();
-  const seconds = Math.floor((now - past) / 1000);
-  if (seconds < 60) return "Před chvílí";
-  if (seconds < 3600) return Math.floor(seconds / 60) + "m ago";
-  if (seconds < 86400) return Math.floor(seconds / 3600) + "h ago";
-  return Math.floor(seconds / 86400) + "d ago";
+  // Clear pickers
+  fpFrom.clear();
+  fpTo.clear();
+
+  fetchAndRenderGraph(`/api/widget_history/${widgetId}`);
 }
 
-function showGraphOverlay(widgetId, title) {
-  fetch(`/api/widget_history/${widgetId}`)
+function updateGraphRange(range) {
+  let url = `/api/widget_history/${currentActiveWidgetId}`;
+  if (range !== 'all') url += `?range=${range}`;
+  fetchAndRenderGraph(url);
+}
+
+function updateGraphCustom() {
+  const from = document.getElementById('dateFrom').value;
+  const to = document.getElementById('dateTo').value;
+
+  if (!from) return alert("Vyberte prosím počáteční datum.");
+
+  let url = `/api/widget_history/${currentActiveWidgetId}?start=${from}`;
+  if (to) url += `&end=${to}`;
+
+  fetchAndRenderGraph(url);
+}
+
+function fetchAndRenderGraph(url) {
+  fetch(url)
     .then(res => res.json())
     .then(data => {
-      document.getElementById('overlayTitle').innerText = `${title} - Historie`;
       graphOverlay.style.display = 'flex';
       if (globalOverlayChart) globalOverlayChart.destroy();
+
       globalOverlayChart = new Chart(document.getElementById('overlayChart').getContext('2d'), {
         type: 'line',
         data: {
@@ -220,7 +259,8 @@ function showGraphOverlay(widgetId, title) {
             borderColor: '#3b82f6',
             backgroundColor: 'rgba(59, 130, 246, 0.1)',
             fill: true,
-            tension: 0.4
+            tension: 0.3,
+            pointRadius: data.values.length > 50 ? 0 : 3
           }]
         },
         options: {
@@ -228,11 +268,26 @@ function showGraphOverlay(widgetId, title) {
           maintainAspectRatio: false,
           scales: {
             y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
-            x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
-          }
+            x: { grid: { display: false }, ticks: { color: '#94a3b8', maxRotation: 45, minRotation: 45 } }
+          },
+          plugins: { legend: { display: false } }
         }
       });
     });
+}
+
+/**
+ * LIVE DATA UPDATES
+ */
+function getTimeAgo(dateString) {
+  if (!dateString || dateString === "None") return "Nikdy";
+  const past = new Date(dateString.replace(/-/g, "/"));
+  const now = new Date();
+  const seconds = Math.floor((now - past) / 1000);
+  if (seconds < 60) return "Před chvílí";
+  if (seconds < 3600) return Math.floor(seconds / 60) + "m ago";
+  if (seconds < 86400) return Math.floor(seconds / 3600) + "h ago";
+  return Math.floor(seconds / 86400) + "d ago";
 }
 
 function refreshWidget(widgetId) {
@@ -249,18 +304,18 @@ function refreshWidget(widgetId) {
     });
 }
 
-// Auto-refresh senzorů
 const runAutoRefresh = () => {
   document.querySelectorAll('.live-value').forEach(el => refreshWidget(el.dataset.id));
 };
+
 runAutoRefresh();
-setInterval(runAutoRefresh, 300000); // 5 minut
+setInterval(runAutoRefresh, 300000);
 setInterval(() => {
   document.querySelectorAll('.last-updated').forEach(el => {
     const raw = el.getAttribute('data-raw-time');
     if (raw) el.innerText = `Aktualizace: ${getTimeAgo(raw)}`;
   });
-}, 30000); // 30 sekund
+}, 30000);
 </script>
 </body>
 </html>
