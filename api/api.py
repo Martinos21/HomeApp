@@ -3,6 +3,10 @@ import sqlite3
 import datetime
 import os
 import json
+import logging
+import threading
+import uuid
+import time
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -11,17 +15,28 @@ import paho.mqtt.publish as publish
 from src.tools.dbTools import get_widget_data, get_historical_data
 from src.tools.hotspot import start_hotspot
 from src.tools.automation import automation_worker
-import threading
-import uuid
 
 app = Flask(__name__)
 CORS(app)
 
-automations = []
+# ===== LOGGING =====
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    handlers=[
+        logging.FileHandler('api.log', encoding='utf-8'),
+        logging.StreamHandler()  # zároveň vypisuje do konzole
+    ]
+)
+logger = logging.getLogger(__name__)
 
-SETTINGS_FILE = 'settings.json'
+# ===== STAV APLIKACE =====
+automations = []
 widgets = []
 widget_id_counter = itertools.count(1)
+SETTINGS_FILE = 'settings.json'
+
 
 def get_config():
     default_config = {
@@ -35,11 +50,11 @@ def get_config():
         try:
             with open(SETTINGS_FILE, 'r') as f:
                 return {**default_config, **json.load(f)}
-        except:
+        except Exception as e:
+            logger.warning(f"Nepodařilo se načíst settings.json: {e}")
             return default_config
     return default_config
 
-# --- Senzorová data (příjem z M5Stack) ---
 
 @app.route('/data', methods=['POST'])
 def data():
@@ -48,26 +63,32 @@ def data():
     current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     values = (d.get('co2'), d.get('temp'), d.get('hum'), current_time)
 
-    with sqlite3.connect('/root/home.db') as con:
-        cur = con.cursor()
-        cur.execute(f"CREATE TABLE IF NOT EXISTS {tName} (CO2 FLOAT, Temp FLOAT, Hum FLOAT, Tim TEXT)")
-        cur.execute(f"INSERT INTO {tName} (CO2, Temp, Hum, Tim) VALUES (?, ?, ?, ?)", values)
-        con.commit()
-    return "OK"
+    try:
+        with sqlite3.connect('/root/home.db') as con:
+            cur = con.cursor()
+            cur.execute(f"CREATE TABLE IF NOT EXISTS {tName} (CO2 FLOAT, Temp FLOAT, Hum FLOAT, Tim TEXT)")
+            cur.execute(f"INSERT INTO {tName} (CO2, Temp, Hum, Tim) VALUES (?, ?, ?, ?)", values)
+            con.commit()
+        logger.info(f"[DATA] Přijata data z '{tName}': CO2={values[0]}, Temp={values[1]}, Hum={values[2]}")
+        return "OK"
+    except Exception as e:
+        logger.error(f"[DATA] Chyba při zápisu do DB pro '{tName}': {e}")
+        return "ERROR", 500
 
-# --- Widgety ---
 
 @app.route('/api/widget/add', methods=['POST'])
 def add_widget():
     data = request.get_json()
     new_id = f'widget-{next(widget_id_counter)}'
-    widgets.append({
+    widget = {
         'id': new_id,
         'title': data.get('title'),
         'table': data.get('type'),
         'sensor': data.get('sensor'),
         'calc': data.get('calc')
-    })
+    }
+    widgets.append(widget)
+    logger.info(f"[WIDGET] Přidán widget '{widget['title']}' (id={new_id}, tabulka={widget['table']}, senzor={widget['sensor']})")
     return jsonify({'success': True, 'id': new_id})
 
 @app.route('/api/widget/delete', methods=['POST'])
@@ -77,13 +98,16 @@ def delete_widget():
     initial_count = len(widgets)
     widgets = [w for w in widgets if w.get('id') != widget_id_to_delete]
     if len(widgets) < initial_count:
+        logger.info(f"[WIDGET] Odstraněn widget id={widget_id_to_delete}")
         return jsonify({'success': True})
+    logger.warning(f"[WIDGET] Widget id={widget_id_to_delete} nenalezen při mazání")
     return jsonify({'success': False, 'message': 'Widget not found'}), 404
 
 @app.route('/api/widget/data/<widget_id>')
 def widget_data(widget_id):
     widget = next((w for w in widgets if w['id'] == widget_id), None)
     if not widget:
+        logger.warning(f"[WIDGET] Data požadována pro neexistující widget id={widget_id}")
         return jsonify({'error': 'Not found'}), 404
     data = get_widget_data(widget['table'], widget['sensor'], widget['calc'])
     return jsonify(data)
@@ -92,6 +116,7 @@ def widget_data(widget_id):
 def widget_history(widget_id):
     widget = next((w for w in widgets if w['id'] == widget_id), None)
     if not widget:
+        logger.warning(f"[WIDGET] Historie požadována pro neexistující widget id={widget_id}")
         return jsonify({'error': 'Not found'}), 404
     data = get_historical_data(
         table_name=widget['table'],
@@ -102,14 +127,17 @@ def widget_history(widget_id):
     )
     return jsonify(data)
 
-# --- Relé ---
 
 @app.route('/api/relay/<int:relay_id>/<string:action>', methods=['POST'])
 def control_relay(relay_id, action):
-    publish.single(f"relay/relay{relay_id}", action.lower(), hostname="10.42.0.1")
-    return jsonify({"status": "sent", "relay": relay_id, "action": action})
+    try:
+        publish.single(f"relay/relay{relay_id}", action.lower(), hostname="10.42.0.1")
+        logger.info(f"[RELAY] Relé {relay_id} → {action.upper()}")
+        return jsonify({"status": "sent", "relay": relay_id, "action": action})
+    except Exception as e:
+        logger.error(f"[RELAY] Chyba při odesílání MQTT pro relé {relay_id}: {e}")
+        return jsonify({"status": "error", "error": str(e)}), 500
 
-# --- Nastavení ---
 
 @app.route('/api/settings', methods=['GET'])
 def get_settings():
@@ -118,11 +146,15 @@ def get_settings():
 @app.route('/api/settings', methods=['POST'])
 def save_settings():
     try:
+        new_config = request.get_json()
         with open(SETTINGS_FILE, 'w') as f:
-            json.dump(request.get_json(), f)
+            json.dump(new_config, f)
+        logger.info(f"[SETTINGS] Nastavení uložena: {new_config}")
         return jsonify({"success": True})
     except Exception as e:
+        logger.error(f"[SETTINGS] Chyba při ukládání nastavení: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
+
 
 @app.route('/api/automation/add', methods=['POST'])
 def add_automation():
@@ -130,6 +162,7 @@ def add_automation():
     d['id'] = str(uuid.uuid4())
     d['relay_state'] = 'OFF'
     automations.append(d)
+    logger.info(f"[AUTO] Přidána automatizace '{d['title']}' (relé={d['relay']}, ON>{d['threshold_on']}, OFF<{d['threshold_off']})")
     return jsonify({'success': True, 'id': d['id']})
 
 @app.route('/api/automation/list', methods=['GET'])
@@ -140,11 +173,45 @@ def list_automations():
 def delete_automation():
     global automations
     aid = request.get_json().get('id')
+    before = len(automations)
     automations = [a for a in automations if a['id'] != aid]
+    if len(automations) < before:
+        logger.info(f"[AUTO] Odstraněna automatizace id={aid}")
+    else:
+        logger.warning(f"[AUTO] Automatizace id={aid} nenalezena při mazání")
     return jsonify({'success': True})
 
 
+@app.before_request
+def log_request():
+    logger.info(f"[REQUEST] {request.method} {request.path} – from {request.remote_addr}")
+
+    if request.is_json and request.path != '/data':
+        try:
+            logger.debug(f"[REQUEST] body: {request.get_json()}")
+        except Exception:
+            pass
+
+
+@app.after_request
+def log_response(response):
+    logger.info(f"[RESPONSE] {request.method} {request.path} → {response.status_code}")
+    return response
+
+
+@app.errorhandler(404)
+def not_found(e):
+    logger.warning(f"[404] Endpoint nenalezen: {request.method} {request.path}")
+    return jsonify({"error": "Endpoint nenalezen"}), 404
+
+
+@app.errorhandler(500)
+def server_error(e):
+    logger.error(f"[500] Interní chyba serveru: {request.method} {request.path} – {e}")
+    return jsonify({"error": "Interní chyba serveru"}), 500
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8070, debug=True)
     worker_thread = threading.Thread(target=automation_worker(automations), daemon=True)
     worker_thread.start()
+    logger.info("API server se spouští na portu 8070...")
+    app.run(host="0.0.0.0", port=8070, debug=True)
