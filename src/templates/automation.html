@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Automatizace | Smart Home Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='automation.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+  <div class="sidebar">
+    <h1 class="logo"><i class="fas fa-home"></i> SmartHome</h1>
+    <nav>
+      <a href="{{ url_for('dashboard') }}" class="nav-item"><i class="fas fa-th-large"></i> Dashboard</a>
+      <a href="{{ url_for('automation') }}" class="nav-item active"><i class="fas fa-robot"></i> Automatizace</a>
+      <a href="{{ url_for('settings') }}" class="nav-item"><i class="fas fa-cog"></i> Settings</a>
+    </nav>
+  </div>
+
+  <div class="main-content">
+    <h2 class="page-title">Automatizace</h2>
+    <p class="page-subtitle">Pravidla pro automatické ovládání relé podle hodnot senzorů</p>
+
+    <div class="automation-grid" id="automationGrid">
+    </div>
+  </div>
+
+  <button class="addCardButton">+</button>
+
+  <div class="modal" id="autoModal">
+    <div class="modal-content">
+      <h3>Nová automatizace</h3>
+
+      <label>Název pravidla</label>
+      <input type="text" id="autoTitle" placeholder="Např. Ventilátor při horku" />
+
+      <label>Místnost (tabulka v DB)</label>
+      <select id="autoTable">
+        {% for table in db_tables %}
+          <option value="{{ table }}">{{ table|capitalize }}</option>
+        {% endfor %}
+      </select>
+
+      <label>Senzor</label>
+      <select id="autoSensor">
+        <option value="Temp">Teplota</option>
+        <option value="Hum">Vlhkost</option>
+        <option value="CO2">CO2 / Tlak</option>
+      </select>
+
+      <label>Hodnota</label>
+      <select id="autoCalc">
+        <option value="last">Aktuální hodnota</option>
+        <option value="avg">Průměr</option>
+        <option value="min">Minimum</option>
+        <option value="max">Maximum</option>
+      </select>
+
+      <label>Číslo relé (1–6)</label>
+      <select id="autoRelay">
+        <option value="1">Relé 1</option>
+        <option value="2">Relé 2</option>
+        <option value="3">Relé 3</option>
+        <option value="4">Relé 4</option>
+        <option value="5">Relé 5</option>
+        <option value="6">Relé 6</option>
+      </select>
+
+      <div class="modal-section">
+        <div class="modal-section-title">Podmínky sepnutí / rozepnutí</div>
+
+        <div class="threshold-row">
+          <label>Zapnout relé když hodnota &gt;</label>
+          <input type="number" id="thresholdOn" placeholder="např. 28" step="0.1" />
+        </div>
+
+        <div class="threshold-row">
+          <label>Vypnout relé když hodnota &lt;</label>
+          <input type="number" id="thresholdOff" placeholder="např. 24" step="0.1" />
+        </div>
+      </div>
+
+      <div class="modal-buttons">
+        <button id="cancelAutoBtn" style="background: transparent; color: #94a3b8;">Zrušit</button>
+        <button id="createAutoBtn">Vytvořit</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+const API_URL = `http://${window.location.hostname}:8070`;
+const modal = document.getElementById('autoModal');
+
+document.querySelector('.addCardButton').onclick = () => modal.style.display = 'flex';
+document.getElementById('cancelAutoBtn').onclick = () => modal.style.display = 'none';
+
+document.getElementById('createAutoBtn').onclick = () => {
+  const payload = {
+    title:         document.getElementById('autoTitle').value,
+    table:         document.getElementById('autoTable').value,
+    sensor:        document.getElementById('autoSensor').value,
+    calc:          document.getElementById('autoCalc').value,
+    relay:         parseInt(document.getElementById('autoRelay').value),
+    threshold_on:  parseFloat(document.getElementById('thresholdOn').value),
+    threshold_off: parseFloat(document.getElementById('thresholdOff').value),
+  };
+
+  if (!payload.title || isNaN(payload.threshold_on) || isNaN(payload.threshold_off)) {
+    alert('Vyplňte prosím všechna pole.'); return;
+  }
+  if (payload.threshold_off >= payload.threshold_on) {
+    alert('Práh vypnutí musí být nižší než práh zapnutí.'); return;
+  }
+
+  fetch(`${API_URL}/api/automation/add`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(r => r.json()).then(d => {
+    if (d.success) {
+      modal.style.display = 'none';
+      document.getElementById('autoTitle').value = '';
+      document.getElementById('thresholdOn').value = '';
+      document.getElementById('thresholdOff').value = '';
+      loadAutomations();
+    }
+  });
+};
+
+function getRelayBadgeClass(state) {
+  if (state === 'ON')  return 'badge badge-on';
+  if (state === 'OFF') return 'badge badge-off';
+  return 'badge badge-unknown';
+}
+
+function loadAutomations() {
+  fetch(`${API_URL}/api/automation/list`)
+    .then(r => r.json())
+    .then(data => {
+      const grid = document.getElementById('automationGrid');
+
+      if (!data.length) {
+        grid.innerHTML = `
+          <div class="empty-state">
+            <i class="fas fa-robot"></i>
+            <p>Zatím žádná automatizace.<br>Klikněte na <strong>+</strong> a přidejte první pravidlo.</p>
+          </div>`;
+        return;
+      }
+
+      grid.innerHTML = data.map(a => `
+        <div class="automation-card" id="auto-${a.id}">
+          <button class="delete-automation" onclick="deleteAutomation('${a.id}')">
+            <i class="fas fa-times"></i>
+          </button>
+
+          <h4>${a.title}</h4>
+          <p class="automation-meta">${a.table} &middot; ${a.sensor} &middot; ${a.calc.toUpperCase()}</p>
+
+          <div class="automation-rule">
+            <div class="rule-row">
+              <span>Zapnout relé ${a.relay} když &gt; ${a.threshold_on}</span>
+              <span class="badge badge-on">ON</span>
+            </div>
+            <div class="rule-row">
+              <span>Vypnout relé ${a.relay} když &lt; ${a.threshold_off}</span>
+              <span class="badge badge-off">OFF</span>
+            </div>
+            <hr class="rule-divider">
+            <div class="rule-row">
+              <span style="font-size: 0.75rem; color: #64748b;">Aktuální stav relé</span>
+              <span class="${getRelayBadgeClass(a.relay_state)}">${a.relay_state || 'neznámý'}</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    });
+}
+
+function deleteAutomation(id) {
+  fetch(`${API_URL}/api/automation/delete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id })
+  }).then(() => loadAutomations());
+}
+
+loadAutomations();
+setInterval(loadAutomations, 10000);
+</script>
+</body>
+</html>
