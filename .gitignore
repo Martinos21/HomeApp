@@ -60,3 +60,6 @@ static/*.min.css
 translations/
 *.mo
 *.po
+
+.idea
+.DS_Store
