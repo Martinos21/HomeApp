@@ -1,181 +1,321 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="cs">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Smart Home Dashboard</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 </head>
 <body>
+
   <div class="sidebar">
-    <h1 class="logo">
-      <i class="fas fa-home"></i> SmartHome
-    </h1>
+    <h1 class="logo"><i class="fas fa-home"></i> SmartHome</h1>
     <nav>
-      <a href="{{ url_for('dashboard') }}" class="nav-item active">
-        <i class="fas fa-th-large"></i> Dashboard
-      </a>
-      <a href="{{ url_for('devices') }}" class="nav-item">
-        <i class="fas fa-lightbulb"></i> Devices
-      </a>
-      <a href="{{ url_for('settings') }}" class="nav-item">
-        <i class="fas fa-cog"></i> Settings
-      </a>
+      <a href="{{ url_for('dashboard') }}" class="nav-item active"><i class="fas fa-th-large"></i> Dashboard</a>
+      <a href="{{ url_for('settings') }}" class="nav-item"><i class="fas fa-cog"></i> Settings</a>
     </nav>
   </div>
 
   <div class="main-content">
     <h2 class="page-title">Dashboard</h2>
-    <p class="page-subtitle">Welcome to your smart home dashboard!</p>
-    <div class="widget-container">
+    <p class="page-subtitle">Senzory a ovládání v reálném čase</p>
+
+    <div class="widget-container" id="widgetContainer">
       {% for w in widgets %}
-        <div class="widget">
-          <span class="widget-content">{{ w }}</span>
-          <button class="delete-widget" data-widget-id="{{ w }}">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
+        {% if w.sensor == 'Relay' %}
+          <div class="widget" id="container-{{ w.id }}">
+            <div class="widget-content">
+              <h4>{{ w.title }}</h4>
+              <p class="widget-meta">AKTIVNÍ PRVEK | RELÉ #{{ w.calc }}</p>
+              <div class="btn-group" style="margin-top: 15px;">
+                <button class="btn-relay btn-on" onclick="sendRelayControl('{{ w.calc }}', 'ON', '{{ w.id }}')">Zapnout</button>
+                <button class="btn-relay btn-off" onclick="sendRelayControl('{{ w.calc }}', 'OFF', '{{ w.id }}')">Vypnout</button>
+              </div>
+              <div id="relay-status-{{ w.id }}" class="relay-status">Připraveno</div>
+            </div>
+            <button class="delete-widget" data-widget-id="{{ w.id }}">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+        {% else %}
+          <div class="widget" id="container-{{ w.id }}">
+            <div class="widget-content" onclick="showGraphOverlay('{{ w.id }}', '{{ w.title }}')">
+              <h4>{{ w.title }}</h4>
+              <p class="widget-meta">{{ w.sensor }} | {{ w.calc|upper }}</p>
+              <span class="live-value" data-id="{{ w.id }}">--</span>
+              <p class="last-updated" data-time-id="{{ w.id }}">Aktualizace: --</p>
+              <p style="font-size: 0.7rem; color: #64748b;">Zdroj: {{ w.table }}</p>
+            </div>
+            <button class="delete-widget" data-widget-id="{{ w.id }}">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+        {% endif %}
       {% endfor %}
     </div>
   </div>
-<button class="addCardButton" > + </button>
-<div class="modal" id="widgetModal">
-  <div class="modal-content">
-    <h3>Create Widget</h3>
 
-    <label>Widget Title</label>
-    <input type="text" id="widgetTitle" placeholder="Enter widget name" />
+  <button class="addCardButton"> + </button>
 
-    <label>Data to display</label>
-    <select id="widgetType">
-      <option value="temperature">Temperature</option>
-      <option value="humidity">Humidity</option>
-      <option value="energy">Energy Usage</option>
-      <option value="lights">Lights Status</option>
-    </select>
-
-    <div class="modal-buttons">
-      <button id="cancelBtn">Cancel</button>
-      <button id="createBtn">Create</button>
+  <div class="modal" id="widgetModal">
+    <div class="modal-content">
+      <h3>Přidat nový prvek</h3>
+      <label>Název widgetu</label>
+      <input type="text" id="widgetTitle" placeholder="Např. Světlo obývák" />
+      <label>Místnost (Tabulka v DB)</label>
+      <select id="widgetType">
+        {% for table in db_tables %}
+          <option value="{{ table }}">{{ table|capitalize }}</option>
+        {% endfor %}
+      </select>
+      <label>Typ prvku</label>
+      <select id="sensorType" onchange="toggleRelayView()">
+        <option value="Temp">Teplota</option>
+        <option value="Hum">Vlhkost</option>
+        <option value="Press">CO2 / Tlak</option>
+        <option value="Relay">Ovládání Relé (Switch)</option>
+      </select>
+      <label id="calcLabel">Výpočet / ID Relé</label>
+      <select id="widgetCalc">
+        <option value="last">Aktuální hodnota (nebo Relé 1)</option>
+        <option value="avg">Průměr (nebo Relé 2)</option>
+        <option value="min">Minimum (nebo Relé 3)</option>
+        <option value="max">Maximum (nebo Relé 4)</option>
+        <option value="5">Relé 5</option>
+        <option value="6">Relé 6</option>
+      </select>
+      <div class="modal-buttons">
+        <button id="cancelBtn" style="background: transparent; color: #94a3b8;">Zrušit</button>
+        <button id="createBtn">Vytvořit</button>
+      </div>
     </div>
   </div>
-</div>
-</body>
+
+  <div class="modal" id="graphOverlay">
+      <div class="modal-content graph-modal-content">
+        <h3 id="overlayTitle">Historie senzoru</h3>
+
+        <div class="filter-bar">
+          <div class="quick-ranges">
+            <button onclick="updateGraphRange('all')">Vše</button>
+            <button onclick="updateGraphRange('week')">Týden</button>
+            <button onclick="updateGraphRange('month')">Měsíc</button>
+            <button onclick="updateGraphRange('year')">Rok</button>
+          </div>
+
+          <div class="custom-range">
+            <input type="text" id="dateFrom" placeholder="Od dne">
+            <span>do</span>
+            <input type="text" id="dateTo" placeholder="Do dne">
+            <button class="btn-apply" onclick="updateGraphCustom()">Použít</button>
+          </div>
+        </div>
+
+        <div style="height: 400px; margin: 20px 0;">
+          <canvas id="overlayChart"></canvas>
+        </div>
+
+        <div class="modal-buttons">
+          <button id="closeOverlayBtn">Zavřít</button>
+        </div>
+      </div>
+    </div>
+
 <script>
-  const button = document.querySelector('.addCardButton');
-  const container = document.querySelector('.widget-container');
+const API_URL = `http://${window.location.hostname}:8070`;
+let globalOverlayChart = null;
+let currentActiveWidgetId = null;
 
-  const modal = document.getElementById('widgetModal');
-  const cancelBtn = document.getElementById('cancelBtn');
-  const createBtn = document.getElementById('createBtn');
+/** * FLATPICKR INITIALIZATION
+ */
+const fpFrom = flatpickr("#dateFrom", {
+    enableTime: true,
+    dateFormat: "Y-m-d H:i",
+    time_24hr: true,
+});
 
-  const titleInput = document.getElementById('widgetTitle');
-  const typeSelect = document.getElementById('widgetType');
+const fpTo = flatpickr("#dateTo", {
+    enableTime: true,
+    dateFormat: "Y-m-d H:i",
+    time_24hr: true,
+});
 
-  // --- DELETE WIDGET LOGIC FUNCTION ---
-  function setupDeleteListener(buttonElement) {
-    buttonElement.addEventListener('click', (event) => {
-      // Get the identifier from the data attribute
-      const widgetId = event.currentTarget.getAttribute('data-widget-id');
-      const widgetElement = event.currentTarget.closest('.widget');
-
-      if (!widgetId) {
-        console.error("Widget ID not found for deletion.");
-        return;
-      }
-
-      // 1. Send request to the server to delete
-      fetch('/delete_widget', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: widgetId })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          // 2. Remove the widget element from the DOM on success
-          if (widgetElement) {
-            widgetElement.remove();
-          }
-        } else {
-          alert('Failed to delete widget on server.');
-        }
-      })
-      .catch(error => {
-        console.error('Error deleting widget:', error);
-        alert('An error occurred during deletion.');
-      });
-    });
-  }
-
-  // Apply the delete listener to all existing delete buttons on page load
-  document.querySelectorAll('.delete-widget').forEach(setupDeleteListener);
-
-  // Open form
-  button.addEventListener('click', () => {
-    modal.style.display = 'flex';
-  });
-
-  // Close form
-  cancelBtn.addEventListener('click', () => {
-    modal.style.display = 'none';
-  });
-
-  // Create widget
-  createBtn.addEventListener('click', () => {
-    const title = titleInput.value;
-    const type = typeSelect.value;
-    // We assume the server will use a combination of title/type or a generated ID for deletion
-    // For client-side creation, we'll use the title as the temporary ID
-    const widgetId = title;
-
-    if (!title) {
-      alert("Please enter a widget title");
-      return;
+/**
+ * RELAY CONTROL
+ */
+async function sendRelayControl(relayNum, action, widgetId) {
+  const map = { 'last': 1, 'avg': 2, 'min': 3, 'max': 4, '5': 5, '6': 6 };
+  const realNum = map[relayNum] || relayNum;
+  const statusEl = document.getElementById(`relay-status-${widgetId}`);
+  statusEl.innerText = "Odesílám...";
+  try {
+    const res = await fetch(`${API_URL}/relay/${realNum}/${action}`, { method: 'POST' });
+    if (res.ok) {
+      statusEl.innerText = `Stav: ${action}`;
+      statusEl.style.color = action === 'ON' ? '#10b981' : '#ef4444';
     }
+  } catch (err) {
+    statusEl.innerText = "API Offline";
+    statusEl.style.color = "#ef4444";
+  }
+}
 
-    fetch('/add_widget', {
+/**
+ * UI LOGIC
+ */
+const widgetModal = document.getElementById('widgetModal');
+const graphOverlay = document.getElementById('graphOverlay');
+const addBtn = document.querySelector('.addCardButton');
+
+function toggleRelayView() {
+    const type = document.getElementById('sensorType').value;
+    const label = document.getElementById('calcLabel');
+    label.innerText = (type === 'Relay') ? "Číslo Relé (1-6)" : "Způsob výpočtu";
+}
+
+addBtn.onclick = () => { widgetModal.style.display = 'flex'; };
+document.getElementById('cancelBtn').onclick = () => { widgetModal.style.display = 'none'; };
+document.getElementById('closeOverlayBtn').onclick = () => { graphOverlay.style.display = 'none'; };
+
+document.getElementById('createBtn').onclick = () => {
+  const payload = {
+    title: document.getElementById('widgetTitle').value,
+    type: document.getElementById('widgetType').value,
+    sensor: document.getElementById('sensorType').value,
+    calc: document.getElementById('widgetCalc').value
+  };
+  fetch('/add_widget', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(res => res.json()).then(data => { if (data.success) location.reload(); });
+};
+
+document.querySelectorAll('.delete-widget').forEach(btn => {
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    const id = btn.dataset.widgetId;
+    fetch('/delete_widget', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, type })
-    })
+      body: JSON.stringify({ id: id })
+    }).then(() => document.getElementById(`container-${id}`).remove());
+  };
+});
+
+/**
+ * GRAPH LOGIC
+ */
+function showGraphOverlay(widgetId, title) {
+  currentActiveWidgetId = widgetId;
+  document.getElementById('overlayTitle').innerText = `${title} - Historie`;
+
+  // Clear pickers
+  fpFrom.clear();
+  fpTo.clear();
+
+  fetchAndRenderGraph(`/api/widget_history/${widgetId}`);
+}
+
+function updateGraphRange(range) {
+  let url = `/api/widget_history/${currentActiveWidgetId}`;
+  if (range !== 'all') url += `?range=${range}`;
+  fetchAndRenderGraph(url);
+}
+
+function updateGraphCustom() {
+  const from = document.getElementById('dateFrom').value;
+  const to = document.getElementById('dateTo').value;
+
+  if (!from) return alert("Vyberte prosím počáteční datum.");
+
+  let url = `/api/widget_history/${currentActiveWidgetId}?start=${from}`;
+  if (to) url += `&end=${to}`;
+
+  fetchAndRenderGraph(url);
+}
+
+function fetchAndRenderGraph(url) {
+  fetch(url)
     .then(res => res.json())
     .then(data => {
-      // IMPORTANT: In a robust application, data.success should also return a unique ID.
-      // If data.id is returned by the server, use that instead of widgetId (which is 'title').
+      graphOverlay.style.display = 'flex';
+      if (globalOverlayChart) globalOverlayChart.destroy();
 
-      if (data.success) {
-        const widget = document.createElement('div');
-        widget.classList.add('widget');
+      globalOverlayChart = new Chart(document.getElementById('overlayChart').getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: data.labels,
+          datasets: [{
+            label: 'Hodnota',
+            data: data.values,
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: data.values.length > 50 ? 0 : 3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+            x: { grid: { display: false }, ticks: { color: '#94a3b8', maxRotation: 45, minRotation: 45 } }
+          },
+          plugins: { legend: { display: false } }
+        }
+      });
+    });
+}
 
-        // Create the delete button
-        const deleteButton = document.createElement('button');
-        deleteButton.classList.add('delete-widget');
-        deleteButton.setAttribute('data-widget-id', data.id || widgetId); // Use server ID or fallback
-        deleteButton.innerHTML = '<i class="fas fa-times"></i>';
+/**
+ * LIVE DATA UPDATES
+ */
+function getTimeAgo(dateString) {
+  if (!dateString || dateString === "None") return "Nikdy";
+  const past = new Date(dateString.replace(/-/g, "/"));
+  const now = new Date();
+  const seconds = Math.floor((now - past) / 1000);
+  if (seconds < 60) return "Před chvílí";
+  if (seconds < 3600) return Math.floor(seconds / 60) + "m ago";
+  if (seconds < 86400) return Math.floor(seconds / 3600) + "h ago";
+  return Math.floor(seconds / 86400) + "d ago";
+}
 
-        // Setup listener for the newly created button
-        setupDeleteListener(deleteButton);
-
-        // Add the widget content
-        widget.innerHTML = `
-          <span class="widget-content">
-            <h4>${title}</h4>
-            <p>Type: ${type}</p>
-          </span>
-        `;
-        widget.appendChild(deleteButton); // Append the button to the widget
-
-        container.appendChild(widget);
-
-        // Reset and close
-        titleInput.value = '';
-        modal.style.display = 'none';
-      } else {
-         alert("Failed to create widget on server.");
+function refreshWidget(widgetId) {
+  fetch(`/api/widget_data/${widgetId}`)
+    .then(res => res.json())
+    .then(data => {
+      const valEl = document.querySelector(`.live-value[data-id="${widgetId}"]`);
+      const timeEl = document.querySelector(`.last-updated[data-time-id="${widgetId}"]`);
+      if (valEl) valEl.innerText = data.value;
+      if (timeEl && data.timestamp) {
+        timeEl.setAttribute('data-raw-time', data.timestamp);
+        timeEl.innerText = `Aktualizace: ${getTimeAgo(data.timestamp)}`;
       }
     });
+}
+
+const runAutoRefresh = () => {
+  document.querySelectorAll('.live-value').forEach(el => refreshWidget(el.dataset.id));
+};
+
+runAutoRefresh();
+setInterval(runAutoRefresh, 300000);
+setInterval(() => {
+  document.querySelectorAll('.last-updated').forEach(el => {
+    const raw = el.getAttribute('data-raw-time');
+    if (raw) el.innerText = `Aktualizace: ${getTimeAgo(raw)}`;
   });
+}, 30000);
 </script>
+</body>
 </html>
