@@ -17,7 +17,7 @@ def client():
     sub.CalledProcessError = Exception
     sys.modules['subprocess'] = sub
     with patch('sqlite3.connect', return_value=sqlite3.connect(':memory:')):
-        import app; importlib.reload(app)
+        from src import app; importlib.reload(app)
     app.app.config['TESTING'] = True
     return app.app.test_client(), app
 
