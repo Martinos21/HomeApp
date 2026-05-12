@@ -211,7 +211,7 @@ def server_error(e):
     return jsonify({"error": "Interní chyba serveru"}), 500
 
 if __name__ == "__main__":
-    worker_thread = threading.Thread(target=automation_worker(automations), daemon=True)
+    worker_thread = threading.Thread(target=automation_worker, args=(automations,), daemon=True)
     worker_thread.start()
     logger.info("API server se spouští na portu 8070...")
     app.run(host="0.0.0.0", port=8070, debug=True)
