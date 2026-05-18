@@ -1,4 +1,6 @@
 import itertools
+
+import requests
 from flask import Flask, render_template, request, redirect, url_for, jsonify
 import socket
 import uuid
@@ -36,6 +38,11 @@ def home():
 @app.route('/dashboard')
 def dashboard():
     db_tables = get_db_tables()
+    try:
+        r = requests.get('http://localhost:8070/api/widget/list', timeout=2)
+        widgets = r.json()
+    except:
+        widgets = []
     return render_template('dashboard.html', widgets=widgets, db_tables=db_tables)
 
 @app.route('/automation')

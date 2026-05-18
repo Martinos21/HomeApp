@@ -18,7 +18,10 @@ from src.tools.hotspot import start_hotspot
 from src.tools.automation import automation_worker
 
 app = Flask(__name__)
-CORS(app, origins=re.compile(r"http://(10\.42\.0|192\.168\.\d+)\.\d+.*"))
+
+# ===== CORS =====
+# Povoluje requesty z hotspot sítě (10.42.0.x) a lokální WiFi sítě (192.168.x.x)
+CORS(app, origins=re.compile(r"http://(10\.42\.0\.\d+|192\.168\.\d+\.\d+)(:\d+)?"))
 
 # ===== LOGGING =====
 logging.basicConfig(
@@ -32,40 +35,21 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# ===== STAV APLIKACE =====
 automations = []
+widgets = []
+widget_id_counter = itertools.count(1)
 SETTINGS_FILE = 'settings.json'
-WIDGETS_FILE = 'widgets.json'
 
+# ===== SECURITY =====
+
+# SQL Injection — validace názvu tabulky
 TABLE_NAME_RE = re.compile(r'^[A-Za-z0-9_]{1,64}$')
 
 def is_valid_table_name(name: str) -> bool:
     return bool(name and TABLE_NAME_RE.match(name))
 
-def load_widgets() -> list:
-    """Načte widgety z JSON souboru při startu aplikace."""
-    if os.path.exists(WIDGETS_FILE):
-        try:
-            with open(WIDGETS_FILE, 'r') as f:
-                return json.load(f)
-        except Exception as e:
-            logger.warning(f"Nepodařilo se načíst widgets.json: {e}")
-    return []
-
-def save_widgets() -> None:
-    """Uloží aktuální widgety do JSON souboru."""
-    try:
-        with open(WIDGETS_FILE, 'w') as f:
-            json.dump(widgets, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        logger.error(f"Nepodařilo se uložit widgets.json: {e}")
-
-widgets = load_widgets()
-_max_id = max(
-    (int(w['id'].split('-')[1]) for w in widgets if w.get('id', '').startswith('widget-')),
-    default=0
-)
-widget_id_counter = itertools.count(_max_id + 1)
-
+# Rate limiting — max 60 requestů za minutu per IP
 _request_counts = {}
 _request_lock = threading.Lock()
 RATE_LIMIT = 60
@@ -105,19 +89,20 @@ def data():
     tName = request.headers.get('Name')
     current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
+    # SQL Injection ochrana
     if not is_valid_table_name(tName):
         logger.warning(f"[DATA] Neplatný název tabulky: '{tName}' z {request.remote_addr}")
         return jsonify({"error": "Neplatný název zařízení"}), 400
 
-    values = (d.get('co2'), d.get('temp'), d.get('hum'), current_time)
+    values = (d.get('Press'), d.get('Temp'), d.get('Hum'), current_time)
 
     try:
         with sqlite3.connect('/root/home.db') as con:
             cur = con.cursor()
-            cur.execute(f"CREATE TABLE IF NOT EXISTS {tName} (CO2 FLOAT, Temp FLOAT, Hum FLOAT, Tim TEXT)")
-            cur.execute(f"INSERT INTO {tName} (CO2, Temp, Hum, Tim) VALUES (?, ?, ?, ?)", values)
+            cur.execute(f"CREATE TABLE IF NOT EXISTS {tName} (Pressure FLOAT, Temperature FLOAT, Humidity FLOAT, Tim TEXT)")
+            cur.execute(f"INSERT INTO {tName} (Pressure, Temperature, Humidity, Tim) VALUES (?, ?, ?, ?)", values)
             con.commit()
-        logger.info(f"[DATA] Přijata data z '{tName}': CO2={values[0]}, Temp={values[1]}, Hum={values[2]}")
+        logger.info(f"[DATA] Přijata data z '{tName}': Press={values[0]}, Temp={values[1]}, Hum={values[2]}")
         return "OK"
     except Exception as e:
         logger.error(f"[DATA] Chyba při zápisu do DB pro '{tName}': {e}")
@@ -150,6 +135,10 @@ def delete_widget():
         return jsonify({'success': True})
     logger.warning(f"[WIDGET] Widget id={widget_id_to_delete} nenalezen při mazání")
     return jsonify({'success': False, 'message': 'Widget not found'}), 404
+
+@app.route('/api/widget/list', methods=['GET'])
+def list_widgets():
+    return jsonify(widgets)
 
 @app.route('/api/widget/data/<widget_id>')
 def widget_data(widget_id):
@@ -234,6 +223,7 @@ def delete_automation():
 def before_request():
     ip = request.remote_addr
 
+    # Rate limiting
     if is_rate_limited(ip):
         logger.warning(f"[RATE] Rate limit překročen pro {ip}")
         return jsonify({"error": "Too many requests"}), 429
@@ -249,6 +239,7 @@ def before_request():
 
 @app.after_request
 def after_request(response):
+    # Security hlavičky
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-XSS-Protection'] = '1; mode=block'
