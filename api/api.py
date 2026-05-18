@@ -33,14 +33,38 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 automations = []
-widgets = []
-widget_id_counter = itertools.count(1)
 SETTINGS_FILE = 'settings.json'
+WIDGETS_FILE = 'widgets.json'
 
 TABLE_NAME_RE = re.compile(r'^[A-Za-z0-9_]{1,64}$')
 
 def is_valid_table_name(name: str) -> bool:
     return bool(name and TABLE_NAME_RE.match(name))
+
+def load_widgets() -> list:
+    """Načte widgety z JSON souboru při startu aplikace."""
+    if os.path.exists(WIDGETS_FILE):
+        try:
+            with open(WIDGETS_FILE, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.warning(f"Nepodařilo se načíst widgets.json: {e}")
+    return []
+
+def save_widgets() -> None:
+    """Uloží aktuální widgety do JSON souboru."""
+    try:
+        with open(WIDGETS_FILE, 'w') as f:
+            json.dump(widgets, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error(f"Nepodařilo se uložit widgets.json: {e}")
+
+widgets = load_widgets()
+_max_id = max(
+    (int(w['id'].split('-')[1]) for w in widgets if w.get('id', '').startswith('widget-')),
+    default=0
+)
+widget_id_counter = itertools.count(_max_id + 1)
 
 _request_counts = {}
 _request_lock = threading.Lock()
