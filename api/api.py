@@ -18,7 +18,7 @@ from src.tools.hotspot import start_hotspot
 from src.tools.automation import automation_worker
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=re.compile(r"http://(10\.42\.0|192\.168\.\d+)\.\d+.*"))
 
 # ===== LOGGING =====
 logging.basicConfig(
