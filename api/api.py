@@ -2,6 +2,7 @@ import itertools
 import sqlite3
 import datetime
 import os
+import re
 import json
 import logging
 import threading
@@ -26,16 +27,34 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S',
     handlers=[
         logging.FileHandler('api.log', encoding='utf-8'),
-        logging.StreamHandler()  # zároveň vypisuje do konzole
+        logging.StreamHandler()
     ]
 )
 logger = logging.getLogger(__name__)
 
-# ===== STAV APLIKACE =====
 automations = []
 widgets = []
 widget_id_counter = itertools.count(1)
 SETTINGS_FILE = 'settings.json'
+
+TABLE_NAME_RE = re.compile(r'^[A-Za-z0-9_]{1,64}$')
+
+def is_valid_table_name(name: str) -> bool:
+    return bool(name and TABLE_NAME_RE.match(name))
+
+_request_counts = {}
+_request_lock = threading.Lock()
+RATE_LIMIT = 60
+RATE_WINDOW = 60
+
+def is_rate_limited(ip: str) -> bool:
+    now = time.time()
+    with _request_lock:
+        counts = _request_counts.get(ip, [])
+        counts = [t for t in counts if now - t < RATE_WINDOW]
+        counts.append(now)
+        _request_counts[ip] = counts
+        return len(counts) > RATE_LIMIT
 
 
 def get_config():
@@ -61,6 +80,11 @@ def data():
     d = request.json
     tName = request.headers.get('Name')
     current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    if not is_valid_table_name(tName):
+        logger.warning(f"[DATA] Neplatný název tabulky: '{tName}' z {request.remote_addr}")
+        return jsonify({"error": "Neplatný název zařízení"}), 400
+
     values = (d.get('co2'), d.get('temp'), d.get('hum'), current_time)
 
     try:
@@ -183,8 +207,14 @@ def delete_automation():
 
 
 @app.before_request
-def log_request():
-    logger.info(f"[REQUEST] {request.method} {request.path} – from {request.remote_addr}")
+def before_request():
+    ip = request.remote_addr
+
+    if is_rate_limited(ip):
+        logger.warning(f"[RATE] Rate limit překročen pro {ip}")
+        return jsonify({"error": "Too many requests"}), 429
+
+    logger.info(f"[REQUEST] {request.method} {request.path} – from {ip}")
 
     if request.is_json and request.path != '/data':
         try:
@@ -194,7 +224,11 @@ def log_request():
 
 
 @app.after_request
-def log_response(response):
+def after_request(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+
     logger.info(f"[RESPONSE] {request.method} {request.path} → {response.status_code}")
     return response
 
@@ -214,4 +248,4 @@ if __name__ == "__main__":
     worker_thread = threading.Thread(target=automation_worker, args=(automations,), daemon=True)
     worker_thread.start()
     logger.info("API server se spouští na portu 8070...")
-    app.run(host="0.0.0.0", port=8070, debug=True)
+    app.run(host="0.0.0.0", port=8070, debug=False)
