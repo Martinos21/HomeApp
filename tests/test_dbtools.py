@@ -28,7 +28,7 @@ def fresh_db():
 
 @pytest.fixture
 def db():
-    return patch('dbTools.sqlite3.connect', return_value=sqlite3.connect(DB))
+    return patch('src.tools.dbTools.sqlite3.connect', return_value=sqlite3.connect(DB))
 
 
 # ── get_db_tables ──────────────────────────────────────────────

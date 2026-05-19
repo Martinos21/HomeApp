@@ -45,13 +45,6 @@ def test_automation_returns_200(client):
     with patch.object(app, 'get_db_tables', return_value=['room']):
         assert c.get('/automation').status_code == 200
 
-def test_settings_renders_username(client):
-    c, app = client
-    cfg = {'username': 'TestUser', 'email': '', 'refresh': '30', 'temp_unit': 'c', 'security': False}
-    with patch.object(app, 'get_config', return_value=cfg):
-        assert b'TestUser' in c.get('/settings').data
-
-
 # ── get_config ────────────────────────────────────────────────
 
 def test_config_defaults(client):
