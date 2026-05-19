@@ -18,8 +18,9 @@
   <div class="sidebar">
     <h1 class="logo"><i class="fas fa-home"></i> SmartHome</h1>
     <nav>
-      <a href="{{ url_for('dashboard') }}" class="nav-item active"><i class="fas fa-th-large"></i> Dashboard</a>
-      <a href="{{ url_for('settings') }}" class="nav-item"><i class="fas fa-cog"></i> Settings</a>
+        <a href="{{ url_for('dashboard') }}" class="nav-item active"><i class="fas fa-th-large"></i> Dashboard</a>
+        <a href="{{ url_for('automation') }}" class="nav-item"><i class="fas fa-robot"></i> Automation</a>
+        <a href="{{ url_for('settings') }}" class="nav-item"><i class="fas fa-cog"></i> Settings</a>
     </nav>
   </div>
 
@@ -72,7 +73,7 @@
       <label>Místnost (Tabulka v DB)</label>
       <select id="widgetType">
         {% for table in db_tables %}
-          <option value="{{ table }}">{{ table|capitalize }}</option>
+          <option value="{{ table }}">{{ table }}</option>
         {% endfor %}
       </select>
       <label>Typ prvku</label>
@@ -133,7 +134,8 @@ const API_URL = `http://${window.location.hostname}:8070`;
 let globalOverlayChart = null;
 let currentActiveWidgetId = null;
 
-/** * FLATPICKR INITIALIZATION
+/**
+ * FLATPICKR INITIALIZATION
  */
 const fpFrom = flatpickr("#dateFrom", {
     enableTime: true,
@@ -156,7 +158,7 @@ async function sendRelayControl(relayNum, action, widgetId) {
   const statusEl = document.getElementById(`relay-status-${widgetId}`);
   statusEl.innerText = "Odesílám...";
   try {
-    const res = await fetch(`${API_URL}/relay/${realNum}/${action}`, { method: 'POST' });
+    const res = await fetch(`${API_URL}/api/relay/${realNum}/${action}`, { method: 'POST' });
     if (res.ok) {
       statusEl.innerText = `Stav: ${action}`;
       statusEl.style.color = action === 'ON' ? '#10b981' : '#ef4444';
@@ -191,7 +193,7 @@ document.getElementById('createBtn').onclick = () => {
     sensor: document.getElementById('sensorType').value,
     calc: document.getElementById('widgetCalc').value
   };
-  fetch('/add_widget', {
+  fetch(`${API_URL}/api/widget/add`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -202,7 +204,7 @@ document.querySelectorAll('.delete-widget').forEach(btn => {
   btn.onclick = (e) => {
     e.stopPropagation();
     const id = btn.dataset.widgetId;
-    fetch('/delete_widget', {
+    fetch(`${API_URL}/api/widget/delete`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: id })
@@ -216,29 +218,23 @@ document.querySelectorAll('.delete-widget').forEach(btn => {
 function showGraphOverlay(widgetId, title) {
   currentActiveWidgetId = widgetId;
   document.getElementById('overlayTitle').innerText = `${title} - Historie`;
-
-  // Clear pickers
   fpFrom.clear();
   fpTo.clear();
-
-  fetchAndRenderGraph(`/api/widget_history/${widgetId}`);
+  fetchAndRenderGraph(`${API_URL}/api/widget/history/${widgetId}`);
 }
 
 function updateGraphRange(range) {
-  let url = `/api/widget_history/${currentActiveWidgetId}`;
+  let url = `${API_URL}/api/widget/history/${currentActiveWidgetId}`;
   if (range !== 'all') url += `?range=${range}`;
   fetchAndRenderGraph(url);
 }
 
 function updateGraphCustom() {
-  const from = document.getElementById('dateFrom').value;
-  const to = document.getElementById('dateTo').value;
-
+  const _from = document.getElementById('dateFrom').value;
+  const _to = document.getElementById('dateTo').value;
   if (!from) return alert("Vyberte prosím počáteční datum.");
-
-  let url = `/api/widget_history/${currentActiveWidgetId}?start=${from}`;
-  if (to) url += `&end=${to}`;
-
+  let url = `${API_URL}/api/widget/history/${currentActiveWidgetId}?start=${_from}`;
+  if (to) url += `&end=${_to}`;
   fetchAndRenderGraph(url);
 }
 
@@ -291,7 +287,7 @@ function getTimeAgo(dateString) {
 }
 
 function refreshWidget(widgetId) {
-  fetch(`/api/widget_data/${widgetId}`)
+  fetch(`${API_URL}/api/widget/data/${widgetId}`)
     .then(res => res.json())
     .then(data => {
       const valEl = document.querySelector(`.live-value[data-id="${widgetId}"]`);
